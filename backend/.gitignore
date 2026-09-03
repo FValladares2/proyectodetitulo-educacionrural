@@ -1,0 +1,5 @@
+node_modules/
+.env
+
+# Datos locales (dataset data2 extraido del zip)
+data/
