@@ -8,6 +8,7 @@ export default defineConfig(() => {
     base: './',
     build: {
       outDir: 'build',
+      chunkSizeWarningLimit: 1500, // 1.5MB para uso en telefonos móviles; ajustable según resultados
     },
     css: {
       postcss: {

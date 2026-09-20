@@ -1,0 +1,41 @@
+services:
+  frontend:
+    image: educacionrural-frontend
+    build:
+      context: ./frontend 
+      dockerfile: ./Dockerfile
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - backend
+    ports:
+      - 8065:8065
+
+  backend:
+    image: educacionrural-backend
+    build:
+      context: ./backend
+      dockerfile: ./Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 8064
+      FRONTEND_ORIGIN: http://localhost:8065 # Apuntar a pacheco.chillan.ubiobio.cl cuando se haga el despliegue
+      # MONGODB_URI: mongodb://mongodb:27017 # Docker local
+      MONGODB_DB: educacionrural
+    env_file:
+      - ./backend/.env
+    #depends_on:
+    #  - mongodb
+    ports:
+      - 8064:8064
+
+  #mongodb:
+  #  image: mongo:latest
+  #  restart: always
+  #  ports:
+  #    - 27017:27017
+  #  volumes:
+  #    - mongo_data:/data/db
+
+volumes:
+  mongo_data:

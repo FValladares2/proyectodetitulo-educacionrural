@@ -1,5 +1,5 @@
-import React from 'react'
-import { Link } from 'react-router-dom'
+import React, { useCallback } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   CButton,
   CCard,
@@ -14,14 +14,57 @@ import {
   CInputGroupText,
   CRow,
   CTooltip,
+  CModal,
+  CModalHeader,
+  CModalTitle,
+  CModalBody,
+  CModalFooter,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { apple } from 'src/assets/brand/apple'
-import { google } from 'src/assets/brand/google'
 import { logo } from 'src/assets/brand/logo'
 import { eye } from 'src/assets/icons/eye'
+import { loginUser } from 'src/services/authServices'
 
 const Login = () => {
+  const [showPassword, setShowPassword] = React.useState(false)
+  const [visibleModal, setVisibleModal] = React.useState(false)
+  const [staySignedIn, setStaySignedIn] = React.useState(false)
+  const [email, setEmail] = React.useState('')
+  const [password, setPassword] = React.useState('')
+  const navigate = useNavigate()
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    loginUser({
+      correo: email,
+      contrasena: password,
+    })
+      .then((data) => {
+        console.log('Login successful:', data)
+        finishLogin(data)
+      })
+      .catch((error) => {
+        console.error('Login failed:', error)
+        setVisibleModal(true)
+      })
+  }
+
+  const finishLogin = useCallback(
+    (result) => {
+      if (staySignedIn) {
+        localStorage.setItem('authToken', result.token)
+        localStorage.setItem('authUser', JSON.stringify(result.user))
+        localStorage.setItem('userId', result.user.id_usuario)
+      } else {
+        sessionStorage.setItem('authToken', result.token)
+        sessionStorage.setItem('authUser', JSON.stringify(result.user))
+        sessionStorage.setItem('userId', result.user.id_usuario)
+      }
+      navigate('/dashboard')
+    },
+    [navigate],
+  )
+
   return (
     <div className="bg-body-tertiary min-vh-100 d-flex flex-row align-items-center">
       <CContainer>
@@ -33,36 +76,41 @@ const Login = () => {
               </div>
               <CCard className="p-4">
                 <CCardBody className="d-flex flex-column gap-4">
-                  <h2 className="h5 text-center mb-0">Login to your account</h2>
+                  <h2 className="h5 text-center mb-0">Inicia sesión con tus datos</h2>
                   <CForm className="row gy-3">
                     <CCol xs={12}>
-                      <CFormLabel htmlFor="email">Email address</CFormLabel>
+                      <CFormLabel htmlFor="email">Correo o Nombre de Usuario</CFormLabel>
                       <CFormInput
                         id="email"
                         type="email"
-                        placeholder="your@email.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="correo@institucion.com"
                         autoComplete="email"
                       />
                     </CCol>
                     <CCol xs={12}>
                       <div className="d-flex justify-content-between">
-                        <CFormLabel htmlFor="password">Password</CFormLabel>
-                        <Link to="/authentication/reset-password">I forgot password</Link>
+                        <CFormLabel htmlFor="password">Contraseña</CFormLabel>
+                        <Link to="/authentication/reset-password">No tengo mi contraseña</Link>
                       </div>
                       <CInputGroup>
                         <CFormInput
                           id="password"
-                          type="password"
-                          placeholder="Your password"
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="contraseña"
                           autoComplete="current-password"
                         />
                         <CInputGroupText>
-                          <CTooltip content="Show password">
+                          <CTooltip content="Ver contraseña">
                             <CButton
                               type="button"
                               color="link"
                               className="p-0 link-secondary"
-                              aria-label="Show password"
+                              aria-label="Ver contraseña"
+                              onClick={() => setShowPassword(!showPassword)}
                             >
                               <CIcon icon={eye} size="sm" />
                             </CButton>
@@ -71,42 +119,47 @@ const Login = () => {
                       </CInputGroup>
                     </CCol>
                     <CCol xs={12}>
-                      <CFormCheck id="rememberMe" label="Remember me on this device" />
+                      <CFormCheck
+                        id="staySignedIn"
+                        label="Mantener sesión abierta"
+                        checked={staySignedIn}
+                        onChange={(e) => setStaySignedIn(e.target.checked)}
+                      />
                     </CCol>
                     <CCol xs={12}>
-                      <CButton color="primary" type="submit" className="w-100">
-                        Sign in
+                      <CButton
+                        color="primary"
+                        type="button"
+                        className="w-100"
+                        onClick={handleSubmit}
+                      >
+                        Entrar
                       </CButton>
                     </CCol>
                   </CForm>
-                  <div className="position-relative">
-                    <hr />
-                    <div className="position-absolute top-50 start-50 translate-middle bg-body px-2 text-body-tertiary text-uppercase small">
-                      or
-                    </div>
-                  </div>
-                  <CRow>
-                    <CCol>
-                      <CButton type="button" variant="outline" className="w-100">
-                        <CIcon icon={google} className="me-1" />
-                        Login with Google
-                      </CButton>
-                    </CCol>
-                    <CCol>
-                      <CButton type="button" variant="outline" className="w-100">
-                        <CIcon icon={apple} className="me-1" />
-                        Login with Apple
-                      </CButton>
-                    </CCol>
-                  </CRow>
                 </CCardBody>
               </CCard>
               <div className="text-center text-body-secondary">
-                Need an account? <Link to="/authentication/register">Sign up</Link>
+                Sin cuenta? <Link to="/authentication/register">Crea una cuenta</Link>
               </div>
             </div>
           </CCol>
         </CRow>
+        <CModal
+          visible={visibleModal}
+          onClose={() => setVisibleModal(false)}
+          aria-labelledby="ModalErrorLogin"
+        >
+          <CModalHeader>
+            <CModalTitle id="ModalErrorLogin">Error al iniciar sesión</CModalTitle>
+          </CModalHeader>
+          <CModalBody>Datos de usuario incorrectos. Por favor, intenta de nuevo.</CModalBody>
+          <CModalFooter>
+            <CButton color="secondary" onClick={() => setVisibleModal(false)}>
+              Volver
+            </CButton>
+          </CModalFooter>
+        </CModal>
       </CContainer>
     </div>
   )

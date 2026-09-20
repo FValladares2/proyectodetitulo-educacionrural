@@ -45,13 +45,13 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import {
-  cilBell,
   cilContrast,
-  cilEnvelopeOpen,
-  cilList,
   cilMenu,
   cilMoon,
   cilSun,
+  cilInfo,
+  cilEducation,
+  cilUser,
 } from '@coreui/icons'
 
 import { AppBreadcrumb } from './index'
@@ -95,75 +95,25 @@ const AppHeader = () => {
         >
           <CIcon icon={cilMenu} size="lg" />
         </CHeaderToggler>
-        <CSearchButton
-          onTrigger={() => setSearchVisible(true)}
-          aria-label="Open search dialog"
-          aria-controls="app-header-search-modal"
-        />
-        <CModal
-          id="app-header-search-modal"
-          visible={searchVisible}
-          onClose={() => setSearchVisible(false)}
-          aria-labelledby="app-header-search-modal-title"
-        >
-          <CModalHeader>
-            <CModalTitle id="app-header-search-modal-title" className="w-100">
-              <CFormInput type="search" placeholder="Search" aria-label="Search" />
-            </CModalTitle>
-          </CModalHeader>
-          <CModalBody>
-            <p className="text-body-secondary small mb-2">Recent searches</p>
-            <CListGroup flush>
-              <CListGroupItem
-                as="button"
-                type="button"
-                className="d-flex justify-content-between align-items-center"
-              >
-                CoreUI components overview
-                <CBadge color="secondary" shape="rounded-pill">
-                  Open
-                </CBadge>
-              </CListGroupItem>
-              <CListGroupItem
-                as="button"
-                type="button"
-                className="d-flex justify-content-between align-items-center"
-              >
-                Modal dialog examples
-                <CBadge color="secondary" shape="rounded-pill">
-                  Open
-                </CBadge>
-              </CListGroupItem>
-              <CListGroupItem
-                as="button"
-                type="button"
-                className="d-flex justify-content-between align-items-center"
-              >
-                Sidebar navigation customization
-                <CBadge color="secondary" shape="rounded-pill">
-                  Open
-                </CBadge>
-              </CListGroupItem>
-            </CListGroup>
-          </CModalBody>
-        </CModal>
+
         <CHeaderNav className="ms-auto">
           <CNavItem>
             <CNavLink href="#">
-              <CIcon icon={cilBell} size="lg" />
+              <CIcon icon={cilInfo} size="lg" />
             </CNavLink>
           </CNavItem>
           <CNavItem>
             <CNavLink href="#">
-              <CIcon icon={cilList} size="lg" />
+              <CIcon icon={cilEducation} size="lg" />
             </CNavLink>
           </CNavItem>
           <CNavItem>
             <CNavLink href="#">
-              <CIcon icon={cilEnvelopeOpen} size="lg" />
+              <CIcon icon={cilUser} size="lg" />
             </CNavLink>
           </CNavItem>
         </CHeaderNav>
+
         <CHeaderNav>
           <li className="nav-item py-1">
             <div className="vr h-100 mx-2 text-body text-opacity-75"></div>
@@ -186,7 +136,7 @@ const AppHeader = () => {
                 type="button"
                 onClick={() => setColorMode('light')}
               >
-                <CIcon className="me-2" icon={cilSun} size="lg" /> Light
+                <CIcon className="me-2" icon={cilSun} size="lg" /> Claro
               </CDropdownItem>
               <CDropdownItem
                 active={colorMode === 'dark'}
@@ -195,7 +145,7 @@ const AppHeader = () => {
                 type="button"
                 onClick={() => setColorMode('dark')}
               >
-                <CIcon className="me-2" icon={cilMoon} size="lg" /> Dark
+                <CIcon className="me-2" icon={cilMoon} size="lg" /> Oscuro
               </CDropdownItem>
               <CDropdownItem
                 active={colorMode === 'auto'}
@@ -204,16 +154,13 @@ const AppHeader = () => {
                 type="button"
                 onClick={() => setColorMode('auto')}
               >
-                <CIcon className="me-2" icon={cilContrast} size="lg" /> Auto
+                <CIcon className="me-2" icon={cilContrast} size="lg" /> Automático
               </CDropdownItem>
             </CDropdownMenu>
           </CDropdown>
-          <li className="nav-item py-1">
-            <div className="vr h-100 mx-2 text-body text-opacity-75"></div>
-          </li>
-          <AppHeaderDropdown />
         </CHeaderNav>
       </CContainer>
+
       <CContainer className="px-4" fluid>
         <AppBreadcrumb />
       </CContainer>
