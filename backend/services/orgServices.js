@@ -16,6 +16,14 @@ const findUserInOrg = async (id_organizacion, id_usuario) => {
   return null
 }
 
+const findAdminInOrg = async (id_organizacion, id_usuario) => {
+  if (isMongoConnected() && collections.organizaciones) {
+    return collections.organizaciones.findOne({ _id: new ObjectId(id_organizacion), admin: id_usuario })
+  }
+
+  return null
+}
+
 const getAllOrgs = async () => {
   // only returns name and _id, otherwise will be slow and heavy with users and whatnot
   if (isMongoConnected() && collections.organizaciones) {
@@ -24,6 +32,14 @@ const getAllOrgs = async () => {
 
   return []
 }
+
+const getAllOrgsWithUser = async (id_usuario) => {
+  if (isMongoConnected() && collections.organizaciones) {
+    return collections.organizaciones.find({ usuarios: id_usuario }).project({ nombre: 1, _id: 1 }).toArray()
+  }
+
+  return []
+} 
 
 const createOrg = async (organizacion) => {
   if (isMongoConnected() && collections.organizaciones) {
@@ -75,7 +91,9 @@ const removeAdminInOrg = async (id_organizacion, id_usuario) => {
 module.exports = {
   findOrgById,
   findUserInOrg,
+  findAdminInOrg,
   getAllOrgs,
+  getAllOrgsWithUser,
   createOrg,
   insertUserInOrg,
   insertUserBatchInOrg,

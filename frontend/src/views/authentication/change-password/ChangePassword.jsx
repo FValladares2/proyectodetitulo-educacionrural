@@ -20,29 +20,29 @@ const ChangePassword = () => {
             <CCard className="mx-4">
               <CCardBody className="p-4">
                 <CForm>
-                  <h1>Reset password</h1>
-                  <p className="text-body-secondary">Enter your new password and confirm it.</p>
+                  <h1>Nueva contraseña</h1>
+                  <p className="text-body-secondary">Ingresa tu nueva contraseña y confírmala.</p>
                   <div className="mb-3">
-                    <CFormLabel htmlFor="new-password">New password</CFormLabel>
+                    <CFormLabel htmlFor="new-password">Nueva contraseña</CFormLabel>
                     <CFormInput
                       id="new-password"
                       type="password"
-                      placeholder="Enter new password"
+                      placeholder="Nueva contraseña"
                       autoComplete="new-password"
                     />
                   </div>
                   <div className="mb-4">
-                    <CFormLabel htmlFor="confirm-password">Confirm new password</CFormLabel>
+                    <CFormLabel htmlFor="confirm-password">Confirmar contraseña</CFormLabel>
                     <CFormInput
                       id="confirm-password"
                       type="password"
-                      placeholder="Re-enter new password"
+                      placeholder="Reescribe tu contraseña"
                       autoComplete="new-password"
                     />
                   </div>
                   <div className="d-grid">
                     <CButton color="primary" type="submit">
-                      Set new password
+                      Cambiar contraseña
                     </CButton>
                   </div>
                 </CForm>

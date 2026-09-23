@@ -1,6 +1,6 @@
 const express = require('express')
 const { createToken, authenticate, getUserFromToken } = require('../../utils/auth')
-const { findUserByUsernameOrEmail, findUserByCredentials, insertUser, hashPassword } = require('../../services/userServices')
+const { findUserByUsernameOrEmail, findUserByCredentials, insertUser, hashPassword, setUserMainOrg } = require('../../services/userServices')
 const orgServices = require('../../services/orgServices')
 const crypto = require('crypto')
 const router = express.Router()
@@ -34,11 +34,12 @@ router.post('/api/auth/register', async (req, res) => {
     if (!result.insertedId) {
       return res.status(500).json({ message: 'No se pudo crear el usuario.' })
     } else {
-      await orgServices.createOrg({ 
+      const orgResult = await orgServices.createOrg({ 
         nombre: nombre_organizacion, 
         admin: [result.insertedId], 
         usuarios: [result.insertedId] 
       })
+      await setUserMainOrg(result.insertedId, orgResult.insertedId)
       
       res.status(201).json({ message: 'Usuario creado correctamente.', encryptionSalt })
     }
@@ -66,10 +67,10 @@ router.post('/api/auth/login', async (req, res) => {
     res.json({
       token,
       user: {
-        id: user._id,
+        _id: user._id,
         nombre: user.nombre,
         correo: user.correo,
-        rol_principal: user.rol_principal,
+        org_principal: user.org_principal,
       },
       encryptionSalt: user.encryptionSalt,
     })

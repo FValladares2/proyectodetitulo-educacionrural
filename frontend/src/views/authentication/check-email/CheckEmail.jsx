@@ -10,20 +10,20 @@ const CheckEmail = () => {
           <CCol md={6}>
             <CCard className="mx-4 text-center">
               <CCardBody className="p-4">
-                <h1>Check your email</h1>
+                <h1>Revisa tu correo</h1>
                 <p className="text-body-secondary">
-                  Please click the link sent to <span className="fw-semibold">your@email.com</span>{' '}
-                  to verify your account. Thank you!
+                  Se ha enviado un correo a <span className="fw-semibold">your@email.com</span>
+                  para verificar tu cuenta. ¡Gracias!
                 </p>
                 <div className="d-grid">
                   <Link to="/">
                     <CButton color="primary" className="w-100">
-                      Back to Home
+                      Volver al inicio de sesión
                     </CButton>
                   </Link>
                 </div>
                 <p className="text-body-secondary mt-3 mb-0">
-                  Didn&rsquo;t receive an email? <Link to="/authentication/login">Resend</Link>
+                  ¿No recibiste el correo? <Link to="/authentication/login">Reenviar</Link>
                 </p>
               </CCardBody>
             </CCard>

@@ -55,12 +55,23 @@ const insertUserInBatch = async (users) => {
   return null
 }
 
+const setUserMainOrg = async (userId, orgId) => {
+  if (isMongoConnected() && collections.usuarios) {
+    if (!ObjectId.isValid(userId) || !ObjectId.isValid(orgId)) return null
+    return collections.usuarios.updateOne({ _id: new ObjectId(userId) }, { $set: { org_principal: orgId } })
+  }
+
+  return null
+}
+
 module.exports = {
   hashPassword,
   comparePassword,
   findUserByUsernameOrEmail,
   findUserById,
+  findUserByIdAndUsername,
   findUserByCredentials,
   insertUser,
   insertUserInBatch,
+  setUserMainOrg,
 }

@@ -20,23 +20,22 @@ const ResetPassword = () => {
             <CCard className="mx-4">
               <CCardBody className="p-4">
                 <CForm>
-                  <h1>Reset password</h1>
+                  <h1>Restablecer contraseña</h1>
                   <p className="text-body-secondary">
-                    Enter your email address and we will send you instructions on how to reset your
-                    password.
+                    Ingresa tu correo y te enviaremos un email para restablecer tu contraseña.
                   </p>
                   <div className="mb-4">
-                    <CFormLabel htmlFor="email">Email address</CFormLabel>
+                    <CFormLabel htmlFor="email">Correo</CFormLabel>
                     <CFormInput
                       id="email"
                       type="email"
-                      placeholder="your@email.com"
+                      placeholder="correo@institucion.com"
                       autoComplete="email"
                     />
                   </div>
                   <div className="d-grid">
                     <CButton color="primary" type="submit">
-                      Send reset instructions
+                      Restablecer contraseña
                     </CButton>
                   </div>
                 </CForm>

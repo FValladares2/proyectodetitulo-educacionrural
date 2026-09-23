@@ -54,15 +54,17 @@ const Login = () => {
       if (staySignedIn) {
         localStorage.setItem('authToken', result.token)
         localStorage.setItem('authUser', JSON.stringify(result.user))
-        localStorage.setItem('userId', result.user.id_usuario)
+        localStorage.setItem('userId', result.user._id)
+        localStorage.setItem('userOrg', result.user.org_principal)
       } else {
         sessionStorage.setItem('authToken', result.token)
         sessionStorage.setItem('authUser', JSON.stringify(result.user))
-        sessionStorage.setItem('userId', result.user.id_usuario)
+        sessionStorage.setItem('userId', result.user._id)
+        sessionStorage.setItem('userOrg', result.user.org_principal)
       }
       navigate('/dashboard')
     },
-    [navigate],
+    [navigate, staySignedIn],
   )
 
   return (
