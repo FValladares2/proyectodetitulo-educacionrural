@@ -64,6 +64,14 @@ const setUserMainOrg = async (userId, orgId) => {
   return null
 }
 
+const getUserBatchBasicInfo = async (usersIds) => {
+  if (isMongoConnected() && collections.usuarios) {
+    return collections.usuarios.find({ _id: { $in: usersIds } }).project({ nombre: 1, _id: 1, correo: 1 }).toArray()
+  }
+
+  return []
+}
+
 module.exports = {
   hashPassword,
   comparePassword,
@@ -74,4 +82,5 @@ module.exports = {
   insertUser,
   insertUserInBatch,
   setUserMainOrg,
+  getUserBatchBasicInfo,
 }

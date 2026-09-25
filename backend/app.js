@@ -10,8 +10,13 @@ const allowedOrigins = [
   process.env.FRONTEND_ORIGIN,
   'http://localhost:5173',
   'http://localhost:2200',
+  'http://localhost:8065',
+  'http://localhost:8064',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:2200',
+  'http://127.0.0.1:8065',
+  'http://127.0.0.1:8064',
+
 ].filter(Boolean)
 
 app.use(

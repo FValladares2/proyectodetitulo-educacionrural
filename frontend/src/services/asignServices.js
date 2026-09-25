@@ -76,16 +76,7 @@ const fetchAsignaturas = async (
   }
 }
 
-const getInitialOrgId = () => {
-  const storedOrg = localStorage.getItem('userOrg') || sessionStorage.getItem('userOrg')
-  if (storedOrg && storedOrg !== 'undefined' && storedOrg !== 'null') {
-    return storedOrg
-  }
-  const authUser = getAuthUser()
-  return authUser?.org_principal || authUser?.id_organizacion || ''
-}
-
-const fetchAsignaturaById = async (id) => {
+const fetchAsignaturaById = async (id, signal = undefined) => {
   try {
     const token = getAuthToken()
     if (!token) {
@@ -93,6 +84,7 @@ const fetchAsignaturaById = async (id) => {
     }
     const response = await fetch(`${apiBase}/api/asign/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
+      signal: signal,
     })
     const data = await response.json()
     if (!response.ok) {
@@ -105,4 +97,4 @@ const fetchAsignaturaById = async (id) => {
   }
 }
 
-export { fetchAsignaturas, getInitialOrgId, fetchAsignaturaById }
+export { fetchAsignaturas, fetchAsignaturaById }

@@ -14,9 +14,9 @@ router.post('/api/asign/create', authenticate, async (req, res) => {
         if (!isU) {
             return res.status(403).json({ message: 'No tienes permisos para crear una clase en esta organización.' })
         }
-        const isAdmin = await orgServices.findAdminInOrg(req.body.id_organizacion, user._id)
+        const isProfesor = await orgServices.findTeacherInOrg(req.body.id_organizacion, user._id)
 
-        if (!isAdmin) {
+        if (!isProfesor) {
             return res.status(403).json({ message: 'No tienes permisos para crear una clase en esta organización.' })
         }
 

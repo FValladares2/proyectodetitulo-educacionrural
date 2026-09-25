@@ -14,8 +14,9 @@ import {
 import CIcon from '@coreui/icons-react'
 import { useNavigate } from 'react-router-dom'
 import { cilBook, cilPlus } from '@coreui/icons'
-import { fetchAsignaturas, getInitialOrgId } from 'src/services/asignServices'
+import { fetchAsignaturas } from 'src/services/asignServices'
 import { getAuthToken, getAuthUser } from 'src/services/authServices'
+import { getInitialOrgId } from 'src/services/orgServices'
 import placeholderImage from 'src/assets/images/react.jpg'
 
 const Dashboard = () => {
@@ -126,7 +127,7 @@ const Dashboard = () => {
             </CCardHeader>
             <CCardBody>
               <p className="text-body-secondary mb-0">
-                Bienvenido al panel principal del sistema de Educación Rural.
+                Bienvenido al panel principal del Aula Digital.
               </p>
             </CCardBody>
           </CCard>

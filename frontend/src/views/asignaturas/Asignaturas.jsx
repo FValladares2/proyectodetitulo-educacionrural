@@ -27,8 +27,9 @@ import CIcon from '@coreui/icons-react'
 import { cilBook, cilPeople, cilPlus, cilReload, cilSearch } from '@coreui/icons'
 import NewAsignModal from 'src/components/modals/newAsignModal'
 import { useNavigate } from 'react-router-dom'
-import { fetchAsignaturas, getInitialOrgId } from 'src/services/asignServices'
+import { fetchAsignaturas } from 'src/services/asignServices'
 import { getAuthToken, getAuthUser } from 'src/services/authServices'
+import { getInitialOrgId } from 'src/services/orgServices'
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -190,7 +191,7 @@ const Asignaturas = () => {
             <div>
               <h4 className="mb-1 fw-semibold text-primary">Asignaturas</h4>
               <p className="text-body-secondary mb-0 small">
-                Administración de cursos, asignaturas y participantes registrados.
+                Administración de cursos digitales. Selecciona una asignatura para ver detalles.
               </p>
             </div>
             <div>
