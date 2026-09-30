@@ -260,6 +260,8 @@
 // ------------------------------------------------------------------------------
 
 html {
+  --app-header-offset: 8rem;
+  scroll-padding-top: var(--app-header-offset);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -679,7 +681,7 @@ body {
 }
 
 // ------------------------------------------------------------------------------
-// 4. Authentication Views Custom Styling
+// 4. View specific styles
 // ------------------------------------------------------------------------------
 
 .register-alert-banner {
@@ -690,4 +692,115 @@ body {
   font-size: 0.95rem;
   line-height: 1.45;
   padding: 0.85rem 1.25rem;
+}
+
+.asignatura-sidebar-column {
+  position: sticky;
+  top: var(--app-header-offset);
+  align-self: flex-start;
+  height: fit-content;
+
+  @media (max-width: 991.98px) {
+    position: static;
+  }
+}
+
+.asignatura-sidebar {
+  width: 100%;
+}
+
+.asignatura-mobile-sidebar {
+  .asignatura-mobile-sidebar-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+.asignatura-heading-link {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding-right: 0.5rem;
+
+  .asignatura-heading-marker {
+    flex: 0 0 1rem;
+    height: 0.75rem;
+    margin-top: 0.25rem;
+    border-left: 1px solid var(--cui-border-color);
+    border-bottom: 1px solid var(--cui-border-color);
+    position: relative;
+  }
+
+  .asignatura-heading-marker::after {
+    content: '';
+    width: 0.35rem;
+    height: 0.35rem;
+    border-radius: 50%;
+    background-color: var(--cui-primary);
+    position: absolute;
+    right: -0.2rem;
+    bottom: -0.2rem;
+  }
+
+  &.level-1 .asignatura-heading-marker,
+  &.level-2 .asignatura-heading-marker {
+    margin-left: 0;
+  }
+
+  &.level-3 .asignatura-heading-marker {
+    margin-left: 0.4rem;
+  }
+
+  &.level-4 .asignatura-heading-marker {
+    margin-left: 0.8rem;
+  }
+
+  &.level-5 .asignatura-heading-marker {
+    margin-left: 1.2rem;
+  }
+
+  &.level-6 .asignatura-heading-marker {
+    margin-left: 1.6rem;
+  }
+}
+
+.asignatura-markdown h1,
+.asignatura-markdown h2,
+.asignatura-markdown h3,
+.asignatura-markdown h4,
+.asignatura-markdown h5,
+.asignatura-markdown h6 {
+  scroll-margin-top: var(--app-header-offset);
+}
+
+.asignatura-editor {
+  .mdxeditor {
+    --basePageBg: var(--cui-body-bg);
+    --baseBase: var(--cui-tertiary-bg);
+    --baseBgSubtle: var(--cui-secondary-bg);
+    --baseBg: var(--cui-card-bg);
+    --baseBgHover: var(--cui-secondary-bg);
+    --baseBgActive: var(--cui-secondary-bg);
+    --baseLine: var(--cui-border-color);
+    --baseBorder: var(--cui-border-color);
+    --baseBorderHover: var(--cui-emphasis-color);
+    --baseText: var(--cui-body-color);
+    --baseTextContrast: var(--cui-emphasis-color);
+    --font-body: var(--cui-body-font-family);
+
+    color: var(--cui-body-color);
+
+    .mdxeditor-toolbar {
+      position: sticky;
+      top: var(--app-header-offset);
+      z-index: 10;
+      background-color: var(--cui-card-bg);
+    }
+
+    .mdxeditor-root-contenteditable {
+      background-color: var(--cui-body-bg);
+      color: var(--cui-body-color);
+    }
+  }
 }

@@ -97,4 +97,34 @@ const fetchAsignaturaById = async (id, signal = undefined) => {
   }
 }
 
-export { fetchAsignaturas, fetchAsignaturaById }
+const updateAsignaturaById = async (id, asignatura, signal = undefined) => {
+  try {
+    const token = getAuthToken()
+    if (!token) {
+      throw new Error('Sesión no válida o expirada.')
+    }
+
+    const response = await fetch(`${apiBase}/api/asign/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(asignatura),
+      signal,
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.message || 'Error al actualizar la asignatura.')
+    }
+
+    return data
+  } catch (error) {
+    if (error.name === 'AbortError') return null
+    console.error('Error al actualizar la asignatura:', error)
+    return null
+  }
+}
+
+export { fetchAsignaturas, fetchAsignaturaById, updateAsignaturaById }

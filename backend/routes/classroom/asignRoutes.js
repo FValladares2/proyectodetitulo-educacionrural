@@ -106,6 +106,36 @@ router.get('/api/asign/:id', authenticate, async (req, res) => {
     }
 })
 
+router.put('/api/asign/:id', authenticate, async (req, res) => {
+    try {
+        const user = await getUserFromToken(req.headers.authorization.split(' ')[1])
+        const { id } = req.params
+        console.log('usuario ', user._id, ' busca la asignatura ', id)
+
+        if (!id) {
+            return res.status(400).json({ message: 'Faltan campos obligatorios.' })
+        }
+        if (!await classServices.findDocenteInAsign(id, user._id)) {
+            console.log('usuario ', user._id, ' no se encuentra en la asignatura ', id)
+            return res.status(403).json({ message: 'No tienes permisos para editar esta asignatura.' })
+        }
+
+        if (typeof req.body.formato_markup !== 'string') {
+            return res.status(400).json({ message: 'El contenido debe estar en formato Markdown.' })
+        }
+
+        const result = await classServices.updateClass(id, { formato_markup: req.body.formato_markup })
+        if (!result || result.matchedCount === 0) {
+            return res.status(404).json({ message: 'Asignatura no encontrada.' })
+        }
+
+        res.status(200).json({ formato_markup: req.body.formato_markup })
+    } catch (error) {
+        console.error('Error al obtener la asignatura:', error)
+        res.status(500).json({ message: 'No se pudo obtener la asignatura.' })
+    }
+})
+
 router.put('/api/asign/addUser', authenticate, async (req, res) => {
     try {
         const user = await getUserFromToken(req.headers.authorization.split(' ')[1])
