@@ -33,7 +33,10 @@ const SidebarAsignatura = ({
         <>
           {actions.length > 0 && <hr />}
           <p className="small fw-semibold text-body-secondary mb-2">Contenido</p>
-          <CNav className="flex-column gap-1" aria-label="Índice del contenido">
+          <CNav
+            className="asignatura-heading-nav flex-column gap-1"
+            aria-label="Índice del contenido"
+          >
             {headings.map((heading) => (
               <CNavItem key={heading.id}>
                 <CNavLink

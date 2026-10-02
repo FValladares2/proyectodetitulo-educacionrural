@@ -127,4 +127,70 @@ const updateAsignaturaById = async (id, asignatura, signal = undefined) => {
   }
 }
 
-export { fetchAsignaturas, fetchAsignaturaById, updateAsignaturaById }
+const getAsignUsers = async (id, signal = undefined) => {
+  try {
+    const token = getAuthToken()
+    if (!token) {
+      throw new Error('Sesión no válida o expirada.')
+    }
+    const response = await fetch(`${apiBase}/api/asign/${id}/users`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal,
+    })
+    if (!response.ok) {
+      return { teachers: [], users: [] }
+    }
+    const data = await response.json()
+    return data
+  } catch (error) {
+    if (error.name === 'AbortError') return null
+    console.warn('Endpoint de usuarios de asignatura no disponible aún:', error)
+    return { admins: [], teachers: [], users: [] }
+  }
+}
+
+const addUsersToAsignBatch = async (id_asignatura, usuarios, signal = undefined) => {
+  try {
+    const token = getAuthToken()
+    if (!token) {
+      throw new Error('Sesión no válida o expirada.')
+    }
+    const response = await fetch(`${apiBase}/api/asign/users/batch`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        id_asignatura,
+        usuarios,
+      }),
+      signal,
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.message || 'No se pudieron agregar los usuarios a la asignatura.')
+    }
+    return data
+  } catch (error) {
+    if (error.name === 'AbortError') return null
+    throw error
+  }
+}
+
+const asignServices = {
+  fetchAsignaturas,
+  fetchAsignaturaById,
+  updateAsignaturaById,
+  getAsignUsers,
+  addUsersToAsignBatch,
+}
+
+export {
+  fetchAsignaturas,
+  fetchAsignaturaById,
+  updateAsignaturaById,
+  getAsignUsers,
+  addUsersToAsignBatch,
+}
+export default asignServices

@@ -164,5 +164,113 @@ router.put('/api/asign/addUser', authenticate, async (req, res) => {
     }
 })
 
+router.get('/api/asign/:id/users', authenticate, async (req, res) => {
+    try {
+        const user = await getUserFromToken(req.headers.authorization.split(' ')[1])
+        const { id } = req.params
+
+        if (!id) {
+            return res.status(400).json({ message: 'Faltan campos obligatorios.' })
+        }
+
+        const asignatura = await classServices.getClassById(id)
+        if (!asignatura) {
+            return res.status(404).json({ message: 'Asignatura no encontrada.' })
+        }
+
+        const isUserInAsign = await classServices.findUsuarioInAsign(id, user._id)
+        if (!isUserInAsign) {
+            return res.status(403).json({ message: 'No tienes permisos para ver los integrantes de esta asignatura.' })
+        }
+
+        const docenteIds = (asignatura.docentes || []).map(d => d.toString())
+        const teachers = await userServices.getUserBatchBasicInfo(asignatura.docentes || [])
+        const alumnoIds = (asignatura.usuarios || []).filter(
+            usuario => !docenteIds.includes(usuario.toString())
+        )
+        const users = await userServices.getUserBatchBasicInfo(alumnoIds)
+
+        res.status(200).json({
+            teachers: teachers || [],
+            users: users || [],
+        })
+    } catch (error) {
+        console.error('Error al obtener los usuarios de la asignatura:', error)
+        res.status(500).json({ message: 'No se pudo obtener los usuarios de la asignatura.' })
+    }
+})
+
+router.post('/api/asign/users/batch', authenticate, async (req, res) => {
+    try {
+        const user = await getUserFromToken(req.headers.authorization.split(' ')[1])
+        const { id_asignatura, usuarios } = req.body
+
+        if (!id_asignatura || !Array.isArray(usuarios) || usuarios.length === 0) {
+            return res.status(400).json({ message: 'La asignatura y los usuarios son obligatorios.' })
+        }
+
+        const asignatura = await classServices.getClassById(id_asignatura)
+        if (!asignatura) {
+            return res.status(404).json({ message: 'Asignatura no encontrada.' })
+        }
+
+        const isDocente = await classServices.findDocenteInAsign(id_asignatura, user._id)
+        const isAdmin = asignatura.id_organizacion ? await orgServices.findAdminInOrg(asignatura.id_organizacion, user._id) : false
+        if (!isDocente && !isAdmin) {
+            return res.status(403).json({ message: 'No tienes permisos para agregar usuarios a esta asignatura.' })
+        }
+        const profesoresToAdd = []
+        const alumnosToAdd = []
+
+        for (const item of usuarios) {
+            console.log('Procesando usuario:', item)
+            let targetUserId = item._id || item.id_usuario
+            if (!targetUserId && item.correo) {
+                const foundUser = await userServices.findUserByUsernameOrEmail(item.correo.trim().toLowerCase())
+                if (foundUser) {
+                    targetUserId = foundUser._id
+                }
+            }
+
+            if (!targetUserId) {
+                console.warn('Usuario no encontrado para:', item)
+                continue
+            }
+
+            // Verify user belongs to the organization
+            if (asignatura.id_organizacion) {
+                const inOrg = await orgServices.findUserInOrg(asignatura.id_organizacion, targetUserId)
+                if (!inOrg) {
+                    console.warn(`Usuario ${targetUserId} no pertenece a la organización ${asignatura.id_organizacion}`)
+                    continue
+                }
+            }
+
+            if (item.rol === 'profesor') {
+                profesoresToAdd.push(targetUserId)
+            } else {
+                alumnosToAdd.push(targetUserId)
+            }
+        }
+
+        console.log('Usuarios a agregar a la asignatura:', {
+            profesores: profesoresToAdd,
+            alumnos: alumnosToAdd,
+        })
+
+        await classServices.addUsersToAsignByRole(id_asignatura, {
+            profesores: profesoresToAdd,
+            alumnos: alumnosToAdd,
+        })
+
+        res.status(200).json({
+            message: 'Usuarios agregados correctamente a la asignatura.',
+            total: profesoresToAdd.length + alumnosToAdd.length,
+        })
+    } catch (error) {
+        console.error('Error al agregar usuarios por lote a la asignatura:', error)
+        res.status(500).json({ message: 'No se pudieron agregar los usuarios a la asignatura.' })
+    }
+})
 
 module.exports = router

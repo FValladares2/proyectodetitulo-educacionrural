@@ -231,7 +231,7 @@ const NewAsignModal = ({ visible, onClose, onSuccess }) => {
             />
           </div>
 
-          <div className="mb-3">
+          {/*<div className="mb-3">
             <div className="d-flex justify-content-between align-items-center mb-1">
               <CFormLabel htmlFor="correoInput" className="fw-semibold mb-0">
                 Correos de Participantes
@@ -298,7 +298,7 @@ const NewAsignModal = ({ visible, onClose, onSuccess }) => {
                 </CRow>
               </div>
             </div>
-          )}
+          )}*/}
         </CForm>
       </CModalBody>
 

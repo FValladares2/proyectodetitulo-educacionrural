@@ -1,4 +1,3 @@
-import { CButton } from '@coreui/react'
 import {
   BlockTypeSelect,
   BoldItalicUnderlineToggles,
@@ -7,6 +6,7 @@ import {
   MDXEditor,
   UndoRedo,
   headingsPlugin,
+  linkDialogPlugin,
   linkPlugin,
   listsPlugin,
   markdownShortcutPlugin,
@@ -60,23 +60,27 @@ const translateToSpanish = (key, defaultValue, interpolations = {}) => {
   })
 }
 
-const EditorAsignatura = ({ markup = '', onSave }) => {
+const EditorAsignatura = ({ markup = '', onChange, onSave }) => {
   const [value, setValue] = useState(markup)
 
-  const handleSave = () => {
-    onSave(value)
+  const handleChange = (nextValue) => {
+    setValue(nextValue)
+    if (onChange) {
+      onChange(nextValue)
+    }
   }
 
   return (
     <div className="asignatura-editor d-flex flex-column gap-3">
       <MDXEditor
         markdown={value}
-        onChange={setValue}
+        onChange={handleChange}
         translation={translateToSpanish}
         plugins={[
           headingsPlugin(),
           listsPlugin(),
           linkPlugin(),
+          linkDialogPlugin(),
           quotePlugin(),
           thematicBreakPlugin(),
           markdownShortcutPlugin(),
@@ -93,18 +97,14 @@ const EditorAsignatura = ({ markup = '', onSave }) => {
           }),
         ]}
       />
-      <div>
-        <CButton color="primary" onClick={handleSave}>
-          Guardar
-        </CButton>
-      </div>
     </div>
   )
 }
 
 EditorAsignatura.propTypes = {
   markup: PropTypes.string,
-  onSave: PropTypes.func.isRequired,
+  onChange: PropTypes.func,
+  onSave: PropTypes.func,
 }
 
 export default EditorAsignatura

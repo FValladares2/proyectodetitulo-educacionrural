@@ -2,8 +2,8 @@ const { MongoClient, ObjectId } = require('mongodb')
 const crypto = require('crypto')
 const SALT_ROUNDS = 12
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017'
-const MONGODB_DB = process.env.MONGODB_DB || 'null'
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://mongodb:27017/'
+const MONGODB_DB = process.env.MONGODB_DB || 'educacionrural'
 
 const client = new MongoClient(MONGODB_URI)
 
@@ -40,7 +40,7 @@ const connectMongo = async () => {
     } catch (error) {
     connected = false
     console.warn(
-      'MongoDB unavailable. The backend will run with in-memory fallback data until MongoDB is started.',
+      'MongoDB no disponible. No se pudo conectar a ' + MONGODB_URI + ' / ' + MONGODB_DB,
     )
     console.warn(error.message)
   }

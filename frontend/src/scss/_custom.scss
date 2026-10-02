@@ -260,7 +260,9 @@
 // ------------------------------------------------------------------------------
 
 html {
-  --app-header-offset: 8rem;
+  --app-breadcrumb-offset: 7rem;
+  --app-breadcrumb1-offset: 8rem;
+  --app-header-offset: 11rem;
   scroll-padding-top: var(--app-header-offset);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -696,7 +698,7 @@ body {
 
 .asignatura-sidebar-column {
   position: sticky;
-  top: var(--app-header-offset);
+  top: var(--app-breadcrumb1-offset);
   align-self: flex-start;
   height: fit-content;
 
@@ -717,11 +719,34 @@ body {
   }
 }
 
+.asignatura-heading-nav {
+  display: block !important;
+
+  .nav-item {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
+
+.sticky-asignatura-header {
+  position: sticky;
+  top: var(--app-breadcrumb-offset);
+  z-index: 1015;
+  background-color: var(--cui-card-bg);
+  backdrop-filter: blur(8px);
+}
+
 .asignatura-heading-link {
   display: flex !important;
   align-items: flex-start;
   gap: 0.5rem;
-  padding-right: 0.5rem;
+  padding-top: 0.2rem !important;
+  padding-bottom: 0.2rem !important;
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
+  margin: 0 !important;
+  line-height: 1.25;
+  letter-spacing: normal;
 
   .asignatura-heading-marker {
     flex: 0 0 1rem;
@@ -730,17 +755,6 @@ body {
     border-left: 1px solid var(--cui-border-color);
     border-bottom: 1px solid var(--cui-border-color);
     position: relative;
-  }
-
-  .asignatura-heading-marker::after {
-    content: '';
-    width: 0.35rem;
-    height: 0.35rem;
-    border-radius: 50%;
-    background-color: var(--cui-primary);
-    position: absolute;
-    right: -0.2rem;
-    bottom: -0.2rem;
   }
 
   &.level-1 .asignatura-heading-marker,
@@ -765,13 +779,50 @@ body {
   }
 }
 
-.asignatura-markdown h1,
-.asignatura-markdown h2,
-.asignatura-markdown h3,
-.asignatura-markdown h4,
-.asignatura-markdown h5,
-.asignatura-markdown h6 {
-  scroll-margin-top: var(--app-header-offset);
+.asignatura-markdown {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    scroll-margin-top: calc(
+      var(--app-breadcrumb-offset) + var(--asignatura-header-height, 53px) + 12px
+    );
+    line-height: 1.25;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    letter-spacing: normal;
+  }
+
+  u {
+    text-decoration: underline;
+  }
+}
+
+// Tooltips, popovers, and dialogs for MDXEditor should always render in front of headers
+[data-radix-popper-content-wrapper],
+[class*='_tooltipContent_'],
+[class*='_popoverContent_'] {
+  z-index: 1050 !important;
+}
+
+// Display MDXEditor toolbar button tooltips below the buttons instead of on top
+[class*='_tooltipContent_'] {
+  &[data-side='top'],
+  &:not([data-side='bottom']) {
+    transform: translateY(calc(100% + 46px)) !important;
+  }
+  pointer-events: none;
+}
+
+[class*='_dialogOverlay_'] {
+  z-index: 1060 !important;
+}
+
+[class*='_dialogContent_'],
+[class*='_largeDialogContent_'] {
+  z-index: 1061 !important;
 }
 
 .asignatura-editor {
@@ -793,8 +844,8 @@ body {
 
     .mdxeditor-toolbar {
       position: sticky;
-      top: var(--app-header-offset);
-      z-index: 10;
+      top: calc(var(--app-breadcrumb-offset) + var(--asignatura-header-height, 53px));
+      z-index: 1010;
       background-color: var(--cui-card-bg);
     }
 

@@ -11,7 +11,8 @@ const findOrgById = async (id) => {
 
 const findUserInOrg = async (id_organizacion, id_usuario) => {
   if (isMongoConnected() && collections.organizaciones) {
-    return collections.organizaciones.findOne({ _id: new ObjectId(id_organizacion), usuarios: id_usuario })
+    const userId = ObjectId.isValid(id_usuario) ? new ObjectId(id_usuario) : id_usuario
+    return collections.organizaciones.findOne({ _id: new ObjectId(id_organizacion), usuarios: userId })
   }
 
   return null

@@ -8,6 +8,7 @@ const Organizacion = React.lazy(() => import('./views/organizacion/Organizacion'
 const Asignaturas = React.lazy(() => import('./views/asignaturas/Asignaturas'))
 const Configuracion = React.lazy(() => import('./views/configuracion/Configuracion'))
 const DetalleAsignatura = React.lazy(() => import('./views/asignaturas/DetalleAsignatura'))
+const UsuariosAsignatura = React.lazy(() => import('./views/asignaturas/UsuariosAsignatura'))
 
 export const routes = [
   { path: '/', exact: true, name: 'Hogar' },
@@ -18,6 +19,7 @@ export const routes = [
   { path: '/asignaturas', name: 'Asignaturas', element: Asignaturas },
   { path: '/configuracion', name: 'Configuración', element: Configuracion },
   { path: '/logout', name: 'Cerrar Sesión', element: Logout },
+  { path: '/asignaturas/:id/integrantes', name: 'Integrantes', element: UsuariosAsignatura },
   { path: '/asignaturas/:id', name: 'Asignatura', element: DetalleAsignatura },
 ]
 

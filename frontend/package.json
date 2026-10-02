@@ -38,6 +38,7 @@
     "react-redux": "^9.3.0",
     "react-router-dom": "^7.18.2",
     "redux": "5.0.1",
+    "rehype-raw": "^7.0.0",
     "simplebar-react": "^3.3.2"
   },
   "devDependencies": {

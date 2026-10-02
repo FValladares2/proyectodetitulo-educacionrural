@@ -174,6 +174,31 @@ const addUsuarioToAsignBatch = async (id_asignatura, id_usuarios) => {
     return null
 }
 
+const addUsersToAsignByRole = async (id_asignatura, { profesores = [], alumnos = [] }) => {
+    if (isMongoConnected() && collections.asignaturas) {
+        const asigId = ObjectId.isValid(id_asignatura) ? new ObjectId(id_asignatura) : id_asignatura
+        const profObjectIds = profesores.map(id => ObjectId.isValid(id) ? new ObjectId(id) : id)
+        const alumnoObjectIds = alumnos.map(id => ObjectId.isValid(id) ? new ObjectId(id) : id)
+        const allUserObjectIds = [...profObjectIds, ...alumnoObjectIds]
+
+        const updateDoc = {}
+        const addToSet = {}
+
+        if (allUserObjectIds.length > 0) {
+            addToSet.usuarios = { $each: allUserObjectIds }
+        }
+        if (profObjectIds.length > 0) {
+            addToSet.docentes = { $each: profObjectIds }
+        }
+
+        if (Object.keys(addToSet).length > 0) {
+            updateDoc.$addToSet = addToSet
+            return collections.asignaturas.updateOne({ _id: asigId }, updateDoc)
+        }
+    }
+    return null
+}
+
 module.exports = {
     createClass,
     updateClass,
@@ -188,4 +213,5 @@ module.exports = {
     removeUsuarioFromAsign,
     removeDocenteFromAsign,
     addUsuarioToAsignBatch,
+    addUsersToAsignByRole,
 }

@@ -129,7 +129,6 @@ const AddUserToOrgModal = ({ visible, onClose, onSuccess }) => {
         esNuevo: isNewUser,
       },
     ])
-    setForm(getEmptyForm())
     setFormError('')
   }
 
@@ -175,7 +174,7 @@ const AddUserToOrgModal = ({ visible, onClose, onSuccess }) => {
       <CModalHeader closeButton>
         <CModalTitle className="fw-semibold">Agregar usuarios a la organización</CModalTitle>
       </CModalHeader>
-      <CForm onSubmit={handleSubmit}>
+      <CForm onSubmit={handleSubmit} autoComplete="off" noValidate>
         <CModalBody>
           {errorMessage && <CAlert color="danger">{errorMessage}</CAlert>}
           <div className="mb-3 text-body-secondary">
@@ -223,7 +222,7 @@ const AddUserToOrgModal = ({ visible, onClose, onSuccess }) => {
                 value={form.correo}
                 onChange={handleFieldChange}
                 disabled={loading}
-                required
+                autoComplete="off"
               />
             </div>
             {activeTab === 'nuevo' && (
@@ -236,6 +235,7 @@ const AddUserToOrgModal = ({ visible, onClose, onSuccess }) => {
                   value={form.contrasena}
                   onChange={handleFieldChange}
                   disabled={loading}
+                  autoComplete="new-password"
                   minLength={8}
                 />
               </div>

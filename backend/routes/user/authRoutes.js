@@ -36,7 +36,8 @@ router.post('/api/auth/register', async (req, res) => {
     } else {
       const orgResult = await orgServices.createOrg({ 
         nombre: nombre_organizacion, 
-        admin: [result.insertedId], 
+        admin: [result.insertedId],
+        profesores: [result.insertedId],
         usuarios: [result.insertedId] 
       })
       await setUserMainOrg(result.insertedId, orgResult.insertedId)

@@ -7,12 +7,14 @@ import {
   CButton,
   CCol,
   CRow,
+  CBadge,
 } from '@coreui/react'
-import { cilMenu, cilPeople, cilFolder } from '@coreui/icons'
+import { cilMenu, cilPeople, cilFolder, cilPencil } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import EditorAsignatura from './EditorAsignatura'
 import ReactMarkdown from 'react-markdown'
+import rehypeRaw from 'rehype-raw'
 import { useParams } from 'react-router-dom'
 import placeholderImage from 'src/assets/images/react.jpg'
 import { fetchAsignaturaById, updateAsignaturaById } from '../../services/asignServices'
@@ -69,6 +71,36 @@ const DetalleAsignatura = () => {
   const handleArchivos = () => {
     // Lógica para mostrar las evaluaciones de la asignatura
     console.log('Mostrar archivos de la asignatura')
+  }
+
+  const editorMarkupRef = useRef(asignatura?.formato_markup || '')
+  const cardHeaderRef = useRef(null)
+
+  useEffect(() => {
+    if (editando) {
+      editorMarkupRef.current = asignatura?.formato_markup || ''
+    }
+  }, [editando, asignatura?.formato_markup])
+
+  useEffect(() => {
+    const headerEl = cardHeaderRef.current
+    if (!headerEl) return undefined
+
+    const updateHeight = () => {
+      const height = headerEl.getBoundingClientRect().height
+      headerEl.closest('.card')?.style.setProperty('--asignatura-header-height', `${height}px`)
+    }
+
+    updateHeight()
+
+    const observer = new ResizeObserver(updateHeight)
+    observer.observe(headerEl)
+
+    return () => observer.disconnect()
+  }, [asignatura?.nombre, editando])
+
+  const handleGuardar = () => {
+    handleMarkupSave(editorMarkupRef.current)
   }
 
   const handleMarkupSave = (markup) => {
@@ -152,14 +184,25 @@ const DetalleAsignatura = () => {
                 src={asignatura?.img || placeholderImage}
                 style={{ height: '160px', objectFit: 'cover', objectPosition: 'center' }}
               />
-              <CCardHeader className="bg-transparent border-bottom">
-                <div className="d-flex justify-content-between align-items-center mb-2">
-                  <h4 className="mb-0 fw-semibold">{asignatura?.nombre}</h4>
-                  <div className="d-flex align-items-center gap-2">
+              <CCardHeader
+                ref={cardHeaderRef}
+                className="sticky-asignatura-header border-bottom py-2 px-3"
+              >
+                <div className="d-flex justify-content-between align-items-center">
+                  <div className="d-flex align-items-center gap-2 flex-wrap min-w-0 me-2">
+                    <h4 className="mb-0 fw-semibold fs-5 text-break">{asignatura?.nombre}</h4>
+                    {editando && (
+                      <CBadge color="warning" className="text-dark border border-warning">
+                        <span className="ms-1">Modo edición</span>
+                      </CBadge>
+                    )}
+                  </div>
+                  <div className="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
                     {!editando && (
                       <CButton
                         color="secondary"
                         variant="outline"
+                        size="sm"
                         className="d-lg-none"
                         aria-label="Abrir menú de la asignatura"
                         onClick={() => setMobileSidebarVisible(true)}
@@ -167,9 +210,30 @@ const DetalleAsignatura = () => {
                         <CIcon icon={cilMenu} />
                       </CButton>
                     )}
-                    <CButton color="primary" size="sm" onClick={handleEditClick}>
-                      {editando ? 'Cancelar' : 'Editar'}
-                    </CButton>
+                    {editando ? (
+                      <>
+                        <CButton
+                          color="secondary"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleEditClick}
+                        >
+                          Cancelar
+                        </CButton>
+                        <CButton
+                          color="primary"
+                          size="sm"
+                          onClick={handleGuardar}
+                          disabled={guardando}
+                        >
+                          {guardando ? 'Guardando...' : 'Guardar cambios'}
+                        </CButton>
+                      </>
+                    ) : (
+                      <CButton color="primary" size="sm" onClick={handleEditClick}>
+                        <CIcon icon={cilPencil} /> Editar
+                      </CButton>
+                    )}
                   </div>
                 </div>
               </CCardHeader>
@@ -177,9 +241,18 @@ const DetalleAsignatura = () => {
               <CCardBody>
                 {error && <p className="text-danger mb-3">{error}</p>}
                 {editando ? (
-                  <EditorAsignatura markup={asignatura?.formato_markup} onSave={handleMarkupSave} />
+                  <EditorAsignatura
+                    markup={asignatura?.formato_markup}
+                    onChange={(val) => {
+                      editorMarkupRef.current = val
+                    }}
+                  />
                 ) : (
-                  <ReactMarkdown className="asignatura-markdown" components={markdownComponents}>
+                  <ReactMarkdown
+                    className="asignatura-markdown"
+                    rehypePlugins={[rehypeRaw]}
+                    components={markdownComponents}
+                  >
                     {asignatura?.formato_markup}
                   </ReactMarkdown>
                 )}
