@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   CButton,
   CCard,
   CCardBody,
   CCardHeader,
-  CCardImage,
   CCardFooter,
   CCol,
   CRow,
@@ -16,14 +15,16 @@ import {
   CTableRow,
   CSpinner,
 } from '@coreui/react'
-import placeholderImage from 'src/assets/images/react.jpg'
 import AddUserToOrgModal from 'src/components/modals/addUserToOrgModal'
+import BannerRecurso from 'src/components/recursos/BannerRecurso'
+import { getAuthUser } from 'src/services/authServices'
 import {
   getInitialOrgId,
   getOrgById,
-  getUserBatchBasicInfo,
   getOrgsWithUser,
+  getUserBatchBasicInfo,
   updateInitialOrgId,
+  updateOrgImg,
 } from '../../services/orgServices.js'
 
 const Organizacion = () => {
@@ -36,6 +37,15 @@ const Organizacion = () => {
   const [currentOrg, setCurrentOrg] = useState(null)
   const [userData, setUserData] = useState(null)
   const [allOrgs, setAllOrgs] = useState([])
+  const authUser = useMemo(() => getAuthUser(), [])
+  const esAdmin = Boolean(
+    authUser && (currentOrg?.admin || []).some((a) => String(a) === String(authUser._id)),
+  )
+
+  const handleCambiarImg = async (img) => {
+    await updateOrgImg(currentOrgId, img)
+    setCurrentOrg((actual) => ({ ...actual, img }))
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -97,10 +107,12 @@ const Organizacion = () => {
             </div>
           ) : (
             <CCard className="mb-4 shadow-sm border-0">
-              <CCardImage
-                orientation="top"
-                src={currentOrg?.img || placeholderImage}
-                style={{ height: '160px', objectFit: 'cover', objectPosition: 'center' }}
+              <BannerRecurso
+                img={currentOrg?.img}
+                puedeEditar={esAdmin}
+                contenedor={currentOrg}
+                ambito="organizacion"
+                onCambiar={handleCambiarImg}
               />
               <CCardHeader className="bg-transparent border-bottom">
                 <h4 className="mb-0 fw-semibold">
@@ -204,15 +216,7 @@ const Organizacion = () => {
                           style={{ cursor: 'pointer' }}
                           onClick={() => handleOrgClick(org._id)}
                         >
-                          <CCardImage
-                            orientation="top"
-                            src={org.img || placeholderImage}
-                            style={{
-                              height: '160px',
-                              objectFit: 'cover',
-                              objectPosition: 'center',
-                            }}
-                          />
+                          <BannerRecurso img={org.img} />
                           <CCardBody className="bg-transparent border-bottom">
                             <h4 className="mb-0 fw-semibold">{org.nombre}</h4>
                           </CCardBody>

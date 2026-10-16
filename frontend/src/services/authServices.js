@@ -1,3 +1,4 @@
+import { limpiarImagenesRecurso } from 'src/components/recursos/recursoSrc'
 const apiBase = import.meta.env.VITE_API_BASE_URL || ''
 
 async function loginUser(credentials) {
@@ -55,6 +56,7 @@ const getAuthUser = () => {
 }
 
 const clearAuthSession = () => {
+  limpiarImagenesRecurso()
   localStorage.removeItem('authToken')
   localStorage.removeItem('authUser')
   localStorage.removeItem('userId')
@@ -63,4 +65,6 @@ const clearAuthSession = () => {
   sessionStorage.removeItem('userId')
 }
 
+const authServices = { loginUser, registerUser, getAuthToken, getAuthUser, clearAuthSession }
 export { loginUser, registerUser, getAuthToken, getAuthUser, clearAuthSession }
+export default authServices

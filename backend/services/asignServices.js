@@ -1,4 +1,5 @@
 const { isMongoConnected, ObjectId, collections } = require('../config/mongo')
+const accesoServices = require('./accesoServices')
 
 const createClass = async(classRoom) => {
     if (isMongoConnected() && collections.asignaturas) {
@@ -19,6 +20,28 @@ const getClassById = async (id_asignatura) => {
         return collections.asignaturas.findOne({ _id: ObjectId.isValid(id_asignatura) ? new ObjectId(id_asignatura) : id_asignatura })
     }
     return null
+}
+
+// ordena por el último acceso del usuario (colección accesos); las nunca abiertas quedan al final
+const ordenarPorAcceso = (query, userId, sortDirection, skip, limit, proyeccion) => {
+    const userObjectId = ObjectId.isValid(userId) ? new ObjectId(String(userId)) : userId
+    return collections.asignaturas.aggregate([
+        { $match: query },
+        {
+            $lookup: {
+                from: 'accesos',
+                localField: '_id',
+                foreignField: 'id_asignatura',
+                pipeline: [{ $match: { id_usuario: userObjectId } }, { $project: { _id: 0, ultimo_acceso: 1 } }],
+                as: 'acceso',
+            },
+        },
+        { $addFields: { ultimo_acceso: { $first: '$acceso.ultimo_acceso' } } },
+        { $sort: { ultimo_acceso: sortDirection, nombre: 1 } },
+        { $skip: skip },
+        { $limit: limit },
+        { $project: { ...proyeccion, ultimo_acceso: 1 } },
+    ], { collation: { locale: 'es', strength: 2 } })
 }
 
 const getFilteredClasses = async ({
@@ -78,14 +101,18 @@ const getFilteredClasses = async ({
 
     const skip = (Math.max(1, page) - 1) * limit
 
+    const proyeccion = { _id: 1, nombre: 1, img: 1, id_organizacion: 1, docentes: 1, usuarios: 1, activo: 1, createdAt: 1 }
+
     // 6. Ejecución con collation en español
-    const cursor = collections.asignaturas
-        .find(query)
-        .sort(sortOptions)
-        .collation({ locale: 'es', strength: 2 })
-        .skip(skip)
-        .limit(limit)
-        .project({ _id: 1, nombre: 1, id_organizacion: 1, docentes: 1, usuarios: 1, activo: 1, createdAt: 1 })
+    const cursor = sortBy === 'ultimoAcceso' && userId
+        ? ordenarPorAcceso(query, userId, sortDirection, skip, limit, proyeccion)
+        : collections.asignaturas
+            .find(query)
+            .sort(sortOptions)
+            .collation({ locale: 'es', strength: 2 })
+            .skip(skip)
+            .limit(limit)
+            .project(proyeccion)
 
     // nota: no trae el archivo de formato_markup porque es muy pesado
     
@@ -155,6 +182,7 @@ const addDocenteToAsign = async (id_asignatura, id_usuario) => {
 
 const removeUsuarioFromAsign = async (id_asignatura, id_usuario) => {
     if (isMongoConnected() && collections.asignaturas) {
+        await accesoServices.eliminarAccesos(id_asignatura, id_usuario)
         return collections.asignaturas.updateOne({ _id: ObjectId.isValid(id_asignatura) ? new ObjectId(id_asignatura) : id_asignatura }, { $pull: { usuarios: id_usuario } })
     }
     return null

@@ -3,7 +3,6 @@ import {
   CCard,
   CCardBody,
   CCardHeader,
-  CCardImage,
   CCol,
   CRow,
   CSpinner,
@@ -16,8 +15,8 @@ import { useNavigate } from 'react-router-dom'
 import { cilBook, cilPlus } from '@coreui/icons'
 import { fetchAsignaturas } from 'src/services/asignServices'
 import { getAuthToken, getAuthUser } from 'src/services/authServices'
-import { getInitialOrgId } from 'src/services/orgServices'
-import placeholderImage from 'src/assets/images/react.jpg'
+import { getInitialOrgId, getOrgsWithUser } from 'src/services/orgServices'
+import BannerRecurso from 'src/components/recursos/BannerRecurso'
 
 const Dashboard = () => {
   const navigate = useNavigate()
@@ -38,7 +37,7 @@ const Dashboard = () => {
   const search = ''
   const soloDocente = false
   const activoFilter = 'all' // 'all', 'true', 'false'
-  const sortOption = 'reciente' // 'nombre_asc', 'nombre_desc', 'reciente'
+  const sortOption = 'acceso' // 'nombre_asc', 'nombre_desc', 'acceso', 'creado'
   const [page, setPage] = useState(1)
   const limit = 12
 
@@ -53,17 +52,9 @@ const Dashboard = () => {
     let isMounted = true
     const resolveOrg = async () => {
       try {
-        const token = getAuthToken()
-        if (!token) return
-
-        const response = await fetch(`${apiBase}/api/org/user`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
-        if (response.ok && isMounted) {
-          const orgs = await response.json()
+        const response = await getOrgsWithUser()
+        if (response && isMounted) {
+          const orgs = response
           if (Array.isArray(orgs) && orgs.length > 0) {
             const currentOrgId = getInitialOrgId()
             const matchedOrg = currentOrgId
@@ -165,11 +156,7 @@ const Dashboard = () => {
                         className="mb-4 shadow-sm border-0 h-100"
                         onClick={() => irAAsignatura(asignatura._id, asignatura.nombre)}
                       >
-                        <CCardImage
-                          orientation="top"
-                          src={asignatura.img || placeholderImage}
-                          className="p-2"
-                        />
+                        <BannerRecurso img={asignatura.img} className="p-2" />
                         <CCardBody>
                           <p className="text-body-secondary mb-0">{asignatura.nombre}</p>
                         </CCardBody>

@@ -795,8 +795,55 @@ body {
     letter-spacing: normal;
   }
 
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
   u {
     text-decoration: underline;
+  }
+
+  // enlaces de descarga a recursos: [texto](recurso:<id>)
+  .recurso-enlace {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: var(--cui-link-color);
+    text-decoration: underline;
+    vertical-align: baseline;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--cui-link-hover-color);
+    }
+
+    &:disabled {
+      cursor: progress;
+      opacity: 0.75;
+    }
+
+    svg,
+    .spinner-border {
+      flex-shrink: 0;
+      width: 1em;
+      height: 1em;
+    }
+  }
+
+  .recurso-enlace-no-disponible {
+    color: var(--cui-secondary-color);
+    text-decoration: line-through;
+    cursor: default;
+
+    &:hover {
+      color: var(--cui-secondary-color);
+    }
   }
 }
 
@@ -852,6 +899,144 @@ body {
     .mdxeditor-root-contenteditable {
       background-color: var(--cui-body-bg);
       color: var(--cui-body-color);
+    }
+  }
+}
+
+// ------------------------------------------------------------------------------
+// Explorador de recursos (@cubone/react-file-manager)
+// La librería trae alturas fijas y colores claros fijos (#fff); se ajustan las
+// alturas para que no recorten su contenido y se mapean los colores a las
+// variables de CoreUI para que siga el tema claro/oscuro.
+// ------------------------------------------------------------------------------
+
+// la página de archivos recupera el padding lateral del contenedor en teléfonos
+@media (max-width: 575.98px) {
+  .archivos-pagina {
+    margin-inline: -1rem;
+  }
+}
+
+// se usan ambas clases para superar en especificidad a los selectores de la librería
+.explorador-recursos.file-explorer {
+  // alturas totales: CoreUI aplica box-sizing: border-box, así que incluyen padding y borde
+  --fm-alto-toolbar: 48px;
+  --fm-alto-breadcrumb: 40px;
+
+  & {
+    background-color: var(--cui-card-bg);
+    border-color: var(--cui-border-color);
+    color: var(--cui-body-color);
+  }
+
+  // --- Alturas: con border-box las originales (35px y 22px) recortan botones y texto ---
+  .toolbar {
+    height: var(--fm-alto-toolbar);
+    min-height: var(--fm-alto-toolbar);
+    max-height: var(--fm-alto-toolbar);
+    padding: 4px 10px;
+    border-color: var(--cui-border-color);
+  }
+
+  .files-container {
+    height: calc(100% - var(--fm-alto-toolbar));
+  }
+
+  .bread-crumb-container .breadcrumb {
+    height: var(--fm-alto-breadcrumb);
+    min-height: var(--fm-alto-breadcrumb);
+    max-height: var(--fm-alto-breadcrumb);
+    align-items: center;
+    // la clase .breadcrumb de CoreUI agrega margen, padding y flex-wrap que la descuadran
+    flex-wrap: nowrap;
+    margin-bottom: 0;
+    padding: 0 15px;
+    border-color: var(--cui-border-color);
+  }
+
+  .files {
+    height: calc(100% - var(--fm-alto-breadcrumb));
+  }
+
+  // --- Colores ---
+  .files-container .folders-preview,
+  .toolbar .item-action,
+  .toolbar .fm-toolbar .toggle-view,
+  .fm-context-menu,
+  .fm-context-menu .file-context-menu-list .sub-menu,
+  .files .drag-move-tooltip,
+  .fm-modal {
+    background-color: var(--cui-card-bg);
+    border-color: var(--cui-border-color);
+    color: var(--cui-body-color);
+  }
+
+  .toolbar .item-action {
+    color: var(--cui-body-color);
+  }
+
+  .toolbar .item-action:hover,
+  .toolbar .icon-only:focus,
+  .toolbar .fm-toolbar .toggle-view ul li:hover,
+  .bread-crumb-container .breadcrumb .folder-name-btn:hover,
+  .bread-crumb-container .breadcrumb .folder-name-btn:focus,
+  .fm-context-menu .file-context-menu-list ul li:hover,
+  .fm-context-menu .file-context-menu-list ul li.active,
+  .sb-folders-list .sb-folders-list-item:hover,
+  .files .file-item:hover,
+  .files.list .file-item-container:hover,
+  .files.list .files-header .file-name:hover,
+  .files.list .files-header .file-date:hover,
+  .files.list .files-header .file-size:hover {
+    background-color: var(--cui-secondary-bg) !important;
+  }
+
+  // los elementos seleccionados o activos mantienen el color primario
+  .files .file-selected,
+  .files .file-selected:hover,
+  .sb-folders-list .active-list-item,
+  .sb-folders-list .active-list-item:hover {
+    background-color: var(--file-manager-primary-color) !important;
+    color: #fff;
+  }
+
+  .toolbar .item-separator,
+  .bread-crumb-container .breadcrumb .divider {
+    background-color: var(--cui-border-color);
+  }
+
+  .bread-crumb-container .breadcrumb .folder-name-btn {
+    color: inherit;
+  }
+
+  .navigation-pane .sidebar-resize,
+  .fm-modal .fm-modal-header,
+  .files.list .files-header {
+    border-color: var(--cui-border-color);
+  }
+
+  .files.list .files-header {
+    background-color: var(--cui-tertiary-bg);
+  }
+
+  .fm-modal .fm-modal-heading,
+  .files .drag-move-tooltip .drop-zone-file-name {
+    color: var(--cui-body-color);
+  }
+
+  .fm-button-secondary {
+    background-color: var(--cui-secondary-bg);
+    color: var(--cui-body-color);
+  }
+
+  // --- Pantallas pequeñas: se oculta el índice lateral y la vista ocupa todo el ancho ---
+  @media (max-width: 767.98px) {
+    .files-container .navigation-pane {
+      display: none !important;
+    }
+
+    .files-container .folders-preview {
+      width: 100% !important;
     }
   }
 }

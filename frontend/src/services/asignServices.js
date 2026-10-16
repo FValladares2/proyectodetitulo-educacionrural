@@ -5,7 +5,7 @@ const fetchAsignaturas = async (
   controller,
   page = 1,
   limit = 10,
-  sortOption = 'reciente',
+  sortOption = 'acceso',
   currentOrg,
   search = '',
   soloDocente = false,
@@ -25,12 +25,14 @@ const fetchAsignaturas = async (
       throw new Error('Sesión no válida o expirada.')
     }
 
-    const [sortByField, sortOrder] =
-      sortOption === 'reciente'
-        ? ['createdAt', 'desc']
-        : sortOption === 'nombre_desc'
-          ? ['nombre', 'desc']
-          : ['nombre', 'asc']
+    // 'acceso' ordena por el último acceso del usuario; 'creado' por fecha de creación
+    const ORDENES = {
+      acceso: ['ultimoAcceso', 'desc'],
+      creado: ['createdAt', 'desc'],
+      nombre_desc: ['nombre', 'desc'],
+      nombre_asc: ['nombre', 'asc'],
+    }
+    const [sortByField, sortOrder] = ORDENES[sortOption] ?? ORDENES.nombre_asc
 
     const params = new URLSearchParams({
       id_organizacion: currentOrg,
@@ -74,6 +76,30 @@ const fetchAsignaturas = async (
   } finally {
     setLoading(false)
   }
+}
+
+// lista sin paginar (hasta `limit`) de las asignaturas activas del usuario en la organización
+const fetchAsignaturasUsuario = async (id_organizacion, signal = undefined, limit = 100) => {
+  const token = getAuthToken()
+  if (!token) {
+    throw new Error('Sesión no válida o expirada.')
+  }
+  const params = new URLSearchParams({
+    id_organizacion,
+    page: '1',
+    limit: String(limit),
+    sortBy: 'nombre',
+    order: 'asc',
+  })
+  const response = await fetch(`${apiBase}/api/asign/user?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal,
+  })
+  const data = await response.json()
+  if (!response.ok) {
+    throw new Error(data.message || 'Error al obtener las asignaturas.')
+  }
+  return data.data || []
 }
 
 const fetchAsignaturaById = async (id, signal = undefined) => {
@@ -178,18 +204,40 @@ const addUsersToAsignBatch = async (id_asignatura, usuarios, signal = undefined)
   }
 }
 
+// img es "recurso:<id>" con una imagen de la asignatura, o null para volver al banner por defecto
+const updateAsignaturaImg = async (id, img) => {
+  const token = getAuthToken()
+  if (!token) {
+    throw new Error('Sesión no válida o expirada.')
+  }
+  const response = await fetch(`${apiBase}/api/asign/${id}/img`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ img }),
+  })
+  const data = await response.json()
+  if (!response.ok) {
+    throw new Error(data.message || 'No se pudo actualizar la imagen de la asignatura.')
+  }
+  return data
+}
+
 const asignServices = {
   fetchAsignaturas,
+  fetchAsignaturasUsuario,
   fetchAsignaturaById,
   updateAsignaturaById,
+  updateAsignaturaImg,
   getAsignUsers,
   addUsersToAsignBatch,
 }
 
 export {
   fetchAsignaturas,
+  fetchAsignaturasUsuario,
   fetchAsignaturaById,
   updateAsignaturaById,
+  updateAsignaturaImg,
   getAsignUsers,
   addUsersToAsignBatch,
 }

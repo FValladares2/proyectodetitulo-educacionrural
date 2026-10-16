@@ -45,7 +45,7 @@ const getAllOrgs = async () => {
 
 const getAllOrgsWithUser = async (id_usuario) => {
   if (isMongoConnected() && collections.organizaciones) {
-    return collections.organizaciones.find({ usuarios: id_usuario }).project({ nombre: 1, _id: 1 }).toArray()
+    return collections.organizaciones.find({ usuarios: id_usuario }).project({ nombre: 1, img: 1, _id: 1 }).toArray()
   }
 
   return []
@@ -181,6 +181,14 @@ const getAdminsInOrg = async (id_organizacion) => {
   return []
 }
 
+const updateOrg = async (id_organizacion, campos) => {
+  if (isMongoConnected() && collections.organizaciones) {
+    return collections.organizaciones.updateOne({ _id: new ObjectId(id_organizacion) }, { $set: campos })
+  }
+
+  return null
+}
+
 const getTeachersInOrg = async (id_organizacion) => {
   if (isMongoConnected() && collections.organizaciones) {
     const org = await collections.organizaciones.findOne({ _id: new ObjectId(id_organizacion) })
@@ -210,5 +218,6 @@ module.exports = {
   removeTeacherInOrg,
   getUsersInOrg,
   getAdminsInOrg,
-  getTeachersInOrg
+  getTeachersInOrg,
+  updateOrg
 }

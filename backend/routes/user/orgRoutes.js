@@ -3,6 +3,8 @@ const router = express.Router()
 const orgServices = require('../../services/orgServices')
 const userServices = require('../../services/userServices')
 const { authenticate, getUserFromToken } = require('../../utils/auth')
+const recursoServices = require('../../services/recursoServices')
+const { ObjectId } = require('../../config/mongo')
 const crypto = require('crypto')
 
 router.get('/api/org/all', async (req, res) => {
@@ -87,6 +89,34 @@ router.put('/api/org/user/update', authenticate, async (req, res) => {
     }
 })
 
+// banner de la organización: { img: "recurso:<id>" } con una imagen de la propia organización, o { img: null }
+router.put('/api/org/:id/img', authenticate, async (req, res) => {
+    try {
+        const { id } = req.params
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'La organización no es válida.' })
+        }
+        if (!(await orgServices.findAdminInOrg(id, req.user._id))) {
+            return res.status(403).json({ message: 'Solo un administrador puede cambiar la imagen.' })
+        }
+
+        const validacion = await recursoServices.validarImagenBanner(req.body.img, { id_organizacion: id })
+        if (validacion.status) {
+            return res.status(validacion.status).json({ message: validacion.message })
+        }
+
+        const result = await orgServices.updateOrg(id, { img: validacion.img })
+        if (!result || result.matchedCount === 0) {
+            return res.status(404).json({ message: 'Organización no encontrada.' })
+        }
+
+        res.status(200).json({ img: validacion.img })
+    } catch (error) {
+        console.error('Error al actualizar la imagen de la organización:', error)
+        res.status(500).json({ message: 'No se pudo actualizar la imagen de la organización.' })
+    }
+})
+
 router.get('/api/users/batch/:id_organizacion', authenticate, async (req, res) => {
     try {
         // gives basic info for every user within an org; id, nombre, correo, rol
@@ -101,9 +131,11 @@ router.get('/api/users/batch/:id_organizacion', authenticate, async (req, res) =
         }
 
         if (!asker.org_principal) {
+            console.log("era problema con asker.org_principal")
             return res.status(403).json({ message: 'No tienes permisos para obtener la información de estos usuarios.' })
         }
         const isUserInOrg = await orgServices.findUserInOrg(id_organizacion, asker._id)
+        console.log(isUserInOrg, asker._id, " - api/users/batch/:",id_organizacion)
         if (!isUserInOrg) {
             return res.status(403).json({ message: 'No tienes permisos para obtener la información de estos usuarios.' })
         }

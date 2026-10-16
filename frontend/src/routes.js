@@ -21,6 +21,7 @@ export const routes = [
   { path: '/logout', name: 'Cerrar Sesión', element: Logout },
   { path: '/asignaturas/:id/integrantes', name: 'Integrantes', element: UsuariosAsignatura },
   { path: '/asignaturas/:id', name: 'Asignatura', element: DetalleAsignatura },
+  { path: '/archivos/:id', name: 'Carpeta', element: Archivos },
 ]
 
 export default routes

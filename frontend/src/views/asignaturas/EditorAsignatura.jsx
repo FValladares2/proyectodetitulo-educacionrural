@@ -6,6 +6,7 @@ import {
   MDXEditor,
   UndoRedo,
   headingsPlugin,
+  imagePlugin,
   linkDialogPlugin,
   linkPlugin,
   listsPlugin,
@@ -17,6 +18,8 @@ import {
 import PropTypes from 'prop-types'
 import { useState } from 'react'
 import '@mdxeditor/editor/style.css'
+import InsertarRecursoToolbar from './InsertarRecursoToolbar'
+import { resolverRecursoSrc } from 'src/components/recursos/recursoSrc'
 
 const spanishTranslations = {
   'contentArea.editableMarkdown': 'Markdown editable',
@@ -47,6 +50,16 @@ const spanishTranslations = {
   'createLink.titleTooltip': 'Atributo de título del enlace, visible al pasar el cursor',
   'createLink.saveTooltip': 'Establecer URL',
   'createLink.cancelTooltip': 'Cancelar cambio',
+  'imageEditor.deleteImage': 'Eliminar imagen',
+  'imageEditor.editImage': 'Editar imagen',
+  'uploadImage.dialogTitle': 'Insertar imagen',
+  'uploadImage.dialogDescriptionNoUpload': 'Inserta una imagen desde una URL.',
+  'uploadImage.addViaUrlInstructionsNoUpload': 'Agregar una imagen desde una URL:',
+  'uploadImage.autoCompletePlaceholder': 'Selecciona o pega la dirección de la imagen',
+  'uploadImage.alt': 'Texto alternativo:',
+  'uploadImage.title': 'Título:',
+  'uploadImage.width': 'Ancho:',
+  'uploadImage.height': 'Alto:',
   'dialog.close': 'Cerrar',
   'dialogControls.save': 'Guardar',
   'dialogControls.cancel': 'Cancelar',
@@ -60,7 +73,7 @@ const translateToSpanish = (key, defaultValue, interpolations = {}) => {
   })
 }
 
-const EditorAsignatura = ({ markup = '', onChange, onSave }) => {
+const EditorAsignatura = ({ asignatura, markup = '', onChange, onSave }) => {
   const [value, setValue] = useState(markup)
 
   const handleChange = (nextValue) => {
@@ -81,6 +94,8 @@ const EditorAsignatura = ({ markup = '', onChange, onSave }) => {
           listsPlugin(),
           linkPlugin(),
           linkDialogPlugin(),
+          // el markup conserva recurso:<id>, solo la vista previa usa el objectURL
+          imagePlugin({ imagePreviewHandler: resolverRecursoSrc }),
           quotePlugin(),
           thematicBreakPlugin(),
           markdownShortcutPlugin(),
@@ -92,6 +107,7 @@ const EditorAsignatura = ({ markup = '', onChange, onSave }) => {
                 <BlockTypeSelect />
                 <ListsToggle />
                 <CreateLink />
+                <InsertarRecursoToolbar asignatura={asignatura} />
               </>
             ),
           }),
@@ -102,6 +118,7 @@ const EditorAsignatura = ({ markup = '', onChange, onSave }) => {
 }
 
 EditorAsignatura.propTypes = {
+  asignatura: PropTypes.object,
   markup: PropTypes.string,
   onChange: PropTypes.func,
   onSave: PropTypes.func,

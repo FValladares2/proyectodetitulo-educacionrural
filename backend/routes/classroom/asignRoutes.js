@@ -3,6 +3,8 @@ const router = express.Router()
 const orgServices = require('../../services/orgServices')
 const classServices = require('../../services/asignServices')
 const userServices = require('../../services/userServices')
+const recursoServices = require('../../services/recursoServices')
+const accesoServices = require('../../services/accesoServices')
 const { authenticate, getUserFromToken } = require('../../utils/auth')
 
 router.post('/api/asign/create', authenticate, async (req, res) => {
@@ -94,6 +96,11 @@ router.get('/api/asign/:id', authenticate, async (req, res) => {
             return res.status(403).json({ message: 'No tienes permisos para ver esta asignatura.' })
         }
 
+        // no se espera: un fallo al registrar el acceso no debe impedir ver la asignatura
+        accesoServices.registrarAcceso(user._id, id).catch((error) => {
+            console.error('Error al registrar el acceso a la asignatura:', error)
+        })
+
         const asignatura = await classServices.getClassById(id)
         if (!asignatura.formato_markup) {
             asignatura.formato_markup = '# ' + asignatura.nombre + '\n\nEste contenido será visible para todos los integrantes de la asignatura. Asegurate de editarlo para que sea de ayuda.'
@@ -133,6 +140,31 @@ router.put('/api/asign/:id', authenticate, async (req, res) => {
     } catch (error) {
         console.error('Error al obtener la asignatura:', error)
         res.status(500).json({ message: 'No se pudo obtener la asignatura.' })
+    }
+})
+
+// banner de la asignatura: { img: "recurso:<id>" } con una imagen de la propia asignatura, o { img: null }
+router.put('/api/asign/:id/img', authenticate, async (req, res) => {
+    try {
+        const { id } = req.params
+        if (!await classServices.findDocenteInAsign(id, req.user._id)) {
+            return res.status(403).json({ message: 'No tienes permisos para editar esta asignatura.' })
+        }
+
+        const validacion = await recursoServices.validarImagenBanner(req.body.img, { id_asignatura: id })
+        if (validacion.status) {
+            return res.status(validacion.status).json({ message: validacion.message })
+        }
+
+        const result = await classServices.updateClass(id, { img: validacion.img })
+        if (!result || result.matchedCount === 0) {
+            return res.status(404).json({ message: 'Asignatura no encontrada.' })
+        }
+
+        res.status(200).json({ img: validacion.img })
+    } catch (error) {
+        console.error('Error al actualizar la imagen de la asignatura:', error)
+        res.status(500).json({ message: 'No se pudo actualizar la imagen de la asignatura.' })
     }
 })
 

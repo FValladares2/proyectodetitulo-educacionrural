@@ -29,7 +29,7 @@ import NewAsignModal from 'src/components/modals/newAsignModal'
 import { useNavigate } from 'react-router-dom'
 import { fetchAsignaturas } from 'src/services/asignServices'
 import { getAuthToken, getAuthUser } from 'src/services/authServices'
-import { getInitialOrgId } from 'src/services/orgServices'
+import { getInitialOrgId, getOrgsWithUser } from 'src/services/orgServices'
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -54,7 +54,7 @@ const Asignaturas = () => {
   const [search, setSearch] = useState('')
   const [soloDocente, setSoloDocente] = useState(false)
   const [activoFilter, setActivoFilter] = useState('all') // 'all', 'true', 'false'
-  const [sortOption, setSortOption] = useState('nombre_asc') // 'nombre_asc', 'nombre_desc', 'reciente'
+  const [sortOption, setSortOption] = useState('nombre_asc') // 'nombre_asc', 'nombre_desc', 'acceso', 'creado'
   const [page, setPage] = useState(1)
   const limit = 20
 
@@ -69,17 +69,10 @@ const Asignaturas = () => {
     let isMounted = true
     const resolveOrg = async () => {
       try {
-        const token = getAuthToken()
-        if (!token) return
+        const response = await getOrgsWithUser()
 
-        const response = await fetch(`${apiBase}/api/org/user`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
-        if (response.ok && isMounted) {
-          const orgs = await response.json()
+        if (response && isMounted) {
+          const orgs = response
           if (Array.isArray(orgs) && orgs.length > 0) {
             const currentOrgId = getInitialOrgId()
             const matchedOrg = currentOrgId
@@ -239,7 +232,8 @@ const Asignaturas = () => {
                 <CFormSelect value={sortOption} onChange={handleSortChange}>
                   <option value="nombre_asc">Nombre (A - Z)</option>
                   <option value="nombre_desc">Nombre (Z - A)</option>
-                  <option value="reciente">Más recientes primero</option>
+                  <option value="acceso">Más recientes primero</option>
+                  <option value="creado">Creados recientemente</option>
                 </CFormSelect>
               </CCol>
 

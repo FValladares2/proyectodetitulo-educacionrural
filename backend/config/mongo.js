@@ -12,7 +12,8 @@ const collections = {
   usuarios: null,
   organizaciones: null,
   asignaturas: null,
-  recursos: null
+  recursos: null,
+  accesos: null
 }
 
 let connected = false
@@ -26,12 +27,15 @@ const connectMongo = async () => {
         collections.organizaciones = database.collection('organizaciones')
         collections.asignaturas = database.collection('asignaturas')
         collections.recursos = database.collection('recursos')
+        collections.accesos = database.collection('accesos')
 
         await collections.usuarios.createIndex({ correo: 1 }, { unique: true })
         await collections.usuarios.createIndex({ nombre: 1 })
         await collections.organizaciones.createIndex({ nombre: 1 })
         await collections.asignaturas.createIndex({ nombre: 1 })
         await collections.recursos.createIndex({ nombre_archivo: 1 })
+        // un documento por usuario y asignatura; también resuelve el $lookup del orden por acceso
+        await collections.accesos.createIndex({ id_usuario: 1, id_asignatura: 1 }, { unique: true })
 
         connected = true
         // No registrar la URI completa: puede contener credenciales

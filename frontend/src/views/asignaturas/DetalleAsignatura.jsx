@@ -1,25 +1,24 @@
-import {
-  CCard,
-  CCardHeader,
-  CCardBody,
-  CCardImage,
-  CSpinner,
-  CButton,
-  CCol,
-  CRow,
-  CBadge,
-} from '@coreui/react'
+import { CCard, CCardHeader, CCardBody, CSpinner, CButton, CCol, CRow, CBadge } from '@coreui/react'
 import { cilMenu, cilPeople, cilFolder, cilPencil } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import EditorAsignatura from './EditorAsignatura'
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
 import { useParams } from 'react-router-dom'
-import placeholderImage from 'src/assets/images/react.jpg'
-import { fetchAsignaturaById, updateAsignaturaById } from '../../services/asignServices'
+import BannerRecurso from 'src/components/recursos/BannerRecurso'
+import { getAuthUser } from 'src/services/authServices'
+import {
+  fetchAsignaturaById,
+  updateAsignaturaById,
+  updateAsignaturaImg,
+} from '../../services/asignServices'
+import { fetchRecursosByAsignatura } from '../../services/recursoServices'
 import SidebarAsignatura from './SidebarAsignatura'
 import { createHeadingIdFactory, extractHeadings } from './markdownUtils'
+import ImagenMarkdown from './ImagenMarkdown'
+import EnlaceMarkdown from './EnlaceMarkdown'
+import { RecursosAsignaturaContext, urlTransform } from './recursoMarkdown'
 
 const DetalleAsignatura = () => {
   const [loading, setLoading] = useState(false)
@@ -29,6 +28,22 @@ const DetalleAsignatura = () => {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const [mobileSidebarVisible, setMobileSidebarVisible] = useState(false)
+  // metadatos de los recursos, para los íconos y nombres de los enlaces de descarga
+  const [recursosCargados, setRecursosCargados] = useState({
+    asignaturaId: null,
+    recursos: null,
+    estado: 'cargando',
+  })
+
+  const authUser = useMemo(() => getAuthUser(), [])
+  const esDocente = Boolean(
+    authUser && (asignatura?.docentes || []).some((d) => String(d) === String(authUser._id)),
+  )
+
+  const handleCambiarImg = async (img) => {
+    await updateAsignaturaImg(id, img)
+    setAsignatura((actual) => ({ ...actual, img }))
+  }
 
   const headings = extractHeadings(asignatura?.formato_markup)
   const headingIdFactory = createHeadingIdFactory()
@@ -46,7 +61,20 @@ const DetalleAsignatura = () => {
     h4: renderHeading('h4'),
     h5: renderHeading('h5'),
     h6: renderHeading('h6'),
+    img: ImagenMarkdown,
+    a: EnlaceMarkdown,
   }
+
+  const recursosContexto = useMemo(
+    () =>
+      recursosCargados.asignaturaId === id
+        ? { recursos: recursosCargados.recursos, estado: recursosCargados.estado }
+        : { recursos: null, estado: 'cargando' },
+    [recursosCargados, id],
+  )
+  // al salir del editor se recargan, ya que pudieron subirse recursos nuevos desde el selector
+  const marcarRecursosPorRecargar = () =>
+    setRecursosCargados((previo) => ({ ...previo, estado: 'cargando' }))
 
   const handleHeadingSelect = (headingId) => {
     setMobileSidebarVisible(false)
@@ -61,6 +89,7 @@ const DetalleAsignatura = () => {
 
   const handleEditClick = () => {
     setEditando(!editando)
+    marcarRecursosPorRecargar()
   }
 
   const handleIntegrantes = () => {
@@ -109,6 +138,7 @@ const DetalleAsignatura = () => {
       formato_markup: markup,
     }))
     setEditando(false)
+    marcarRecursosPorRecargar()
     setError('')
     setGuardando(true)
   }
@@ -149,6 +179,25 @@ const DetalleAsignatura = () => {
     return () => controller.abort()
   }, [id])
 
+  useEffect(() => {
+    if (editando) return undefined
+
+    const controller = new AbortController()
+    fetchRecursosByAsignatura(id, controller.signal)
+      .then((recursos) =>
+        setRecursosCargados({
+          asignaturaId: id,
+          recursos: new Map(recursos.map((recurso) => [String(recurso._id), recurso])),
+          estado: 'listo',
+        }),
+      )
+      .catch((err) => {
+        if (err.name === 'AbortError') return
+        setRecursosCargados({ asignaturaId: id, recursos: null, estado: 'error' })
+      })
+    return () => controller.abort()
+  }, [id, editando])
+
   return (
     <div className="mb-4">
       {loading ? (
@@ -179,10 +228,11 @@ const DetalleAsignatura = () => {
 
           <CCol xs={12} lg={editando ? 12 : 9}>
             <CCard className="mb-4 shadow-sm border-0">
-              <CCardImage
-                orientation="top"
-                src={asignatura?.img || placeholderImage}
-                style={{ height: '160px', objectFit: 'cover', objectPosition: 'center' }}
+              <BannerRecurso
+                img={asignatura?.img}
+                puedeEditar={esDocente}
+                contenedor={asignatura}
+                onCambiar={handleCambiarImg}
               />
               <CCardHeader
                 ref={cardHeaderRef}
@@ -242,19 +292,24 @@ const DetalleAsignatura = () => {
                 {error && <p className="text-danger mb-3">{error}</p>}
                 {editando ? (
                   <EditorAsignatura
+                    asignatura={asignatura}
                     markup={asignatura?.formato_markup}
                     onChange={(val) => {
                       editorMarkupRef.current = val
                     }}
                   />
                 ) : (
-                  <ReactMarkdown
-                    className="asignatura-markdown"
-                    rehypePlugins={[rehypeRaw]}
-                    components={markdownComponents}
-                  >
-                    {asignatura?.formato_markup}
-                  </ReactMarkdown>
+                  <RecursosAsignaturaContext.Provider value={recursosContexto}>
+                    <div className="asignatura-markdown">
+                      <ReactMarkdown
+                        rehypePlugins={[rehypeRaw]}
+                        components={markdownComponents}
+                        urlTransform={urlTransform}
+                      >
+                        {asignatura?.formato_markup}
+                      </ReactMarkdown>
+                    </div>
+                  </RecursosAsignaturaContext.Provider>
                 )}
               </CCardBody>
             </CCard>

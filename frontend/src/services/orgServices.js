@@ -101,4 +101,39 @@ const updateInitialOrgId = async (id_organizacion) => {
   }
 }
 
-export { getInitialOrgId, getOrgById, getOrgsWithUser, getUserBatchBasicInfo, updateInitialOrgId }
+// img es "recurso:<id>" con una imagen de la organización, o null para volver al banner por defecto
+const updateOrgImg = async (id, img) => {
+  const token = getAuthToken()
+  if (!token) {
+    throw new Error('Sesión no válida o expirada.')
+  }
+  const response = await fetch(`${apiBase}/api/org/${id}/img`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ img }),
+  })
+  const data = await response.json()
+  if (!response.ok) {
+    throw new Error(data.message || 'No se pudo actualizar la imagen de la organización.')
+  }
+  return data
+}
+
+const orgServices = {
+  getInitialOrgId,
+  getOrgById,
+  getOrgsWithUser,
+  getUserBatchBasicInfo,
+  updateInitialOrgId,
+  updateOrgImg,
+}
+
+export {
+  getInitialOrgId,
+  getOrgById,
+  getOrgsWithUser,
+  getUserBatchBasicInfo,
+  updateInitialOrgId,
+  updateOrgImg,
+}
+export default orgServices
