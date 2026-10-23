@@ -2,6 +2,7 @@ const express = require('express')
 const { createToken, authenticate, getUserFromToken } = require('../../utils/auth')
 const { findUserByUsernameOrEmail, findUserByCredentials, insertUser, hashPassword, setUserMainOrg } = require('../../services/userServices')
 const orgServices = require('../../services/orgServices')
+const { definirContrasenaConInvitacion } = require('../../services/invitacionServices')
 const crypto = require('crypto')
 const router = express.Router()
 
@@ -108,6 +109,24 @@ router.post('/api/auth/registerInBatch', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error al crear usuarios:', error)
     res.status(500).json({ message: 'No se pudo crear los usuarios.' })
+  }
+})
+
+// definir la contraseña con el enlace de invitación (cuentas creadas por un administrador)
+router.post('/api/auth/establecer-contrasena', async (req, res) => {
+  const { token, contrasena } = req.body
+  if (typeof token !== 'string' || !token || typeof contrasena !== 'string' || contrasena.length < 8) {
+    return res.status(400).json({ message: 'La contraseña debe tener al menos 8 caracteres.' })
+  }
+
+  try {
+    if (!await definirContrasenaConInvitacion(token, contrasena)) {
+      return res.status(400).json({ message: 'El enlace no es válido o ya venció. Pide uno nuevo a tu administrador.' })
+    }
+    res.status(200).json({ message: 'Contraseña definida. Ya puedes iniciar sesión.' })
+  } catch (error) {
+    console.error('Error al definir la contraseña:', error)
+    res.status(500).json({ message: 'No se pudo definir la contraseña.' })
   }
 })
 

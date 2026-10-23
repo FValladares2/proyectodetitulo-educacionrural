@@ -11,9 +11,7 @@ import { useState } from 'react'
 import { FaPaperclip, FaRegImage } from 'react-icons/fa6'
 import SelectorRecursoModal from 'src/components/recursos/SelectorRecursoModal'
 import { crearRecursoSrc } from 'src/components/recursos/recursoSrc'
-
-// evita que corchetes en el nombre del archivo rompan la sintaxis del enlace
-const escaparTextoEnlace = (texto) => texto.replace(/[\\[\]]/g, '\\$&')
+import { escaparTextoEnlace } from './markdownUtils'
 
 const sinExtension = (nombre) => nombre.replace(/\.[^.]+$/, '')
 

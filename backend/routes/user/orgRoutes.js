@@ -4,6 +4,9 @@ const orgServices = require('../../services/orgServices')
 const userServices = require('../../services/userServices')
 const { authenticate, getUserFromToken } = require('../../utils/auth')
 const recursoServices = require('../../services/recursoServices')
+const { ACCIONES, registrarActividad } = require('../../services/actividadServices')
+const { notificar } = require('../../services/notificacionServices')
+const { invitarUsuario } = require('../../services/invitacionServices')
 const { ObjectId } = require('../../config/mongo')
 const crypto = require('crypto')
 
@@ -110,6 +113,12 @@ router.put('/api/org/:id/img', authenticate, async (req, res) => {
             return res.status(404).json({ message: 'Organización no encontrada.' })
         }
 
+        registrarActividad({
+            contenedor: { id_organizacion: id },
+            id_usuario: req.user._id,
+            accion: validacion.img ? ACCIONES.BANNER_CAMBIADO : ACCIONES.BANNER_QUITADO,
+        })
+
         res.status(200).json({ img: validacion.img })
     } catch (error) {
         console.error('Error al actualizar la imagen de la organización:', error)
@@ -179,8 +188,14 @@ router.post('/api/org/users/batch', authenticate, async (req, res) => {
             return res.status(403).json({ message: 'Solo un administrador puede agregar usuarios.' })
         }
 
+        const organizacion = await orgServices.getOrgById(id_organizacion)
+        const miembrosPrevios = new Set((organizacion?.usuarios || []).map(String))
+
         const usersByRole = { admin: [], profesor: [], alumno: [] }
         const createdUsers = []
+        // los nuevos reciben una invitación para definir su contraseña; los existentes, un aviso
+        const invitados = []
+        const agregados = []
         for (const userData of usuarios) {
             const correo = userData.correo?.trim().toLowerCase()
             const role = userData.rol
@@ -190,12 +205,14 @@ router.post('/api/org/users/batch', authenticate, async (req, res) => {
 
             let user = await userServices.findUserByUsernameOrEmail(correo)
             if (!user) {
-                if (!userData.nombre || !userData.contrasena || userData.contrasena.length < 8) {
-                    return res.status(400).json({ message: `El nuevo usuario ${correo} requiere nombre y contraseña de 8 caracteres.` })
+                // la contraseña inicial es opcional: sin ella, el usuario la define con la invitación
+                if (!userData.nombre || (userData.contrasena && userData.contrasena.length < 8)) {
+                    return res.status(400).json({ message: `El nuevo usuario ${correo} requiere nombre, y la contraseña debe tener al menos 8 caracteres.` })
                 }
-                const passwordHash = await userServices.hashPassword(userData.contrasena)
+                const nombre = userData.nombre.trim()
+                const passwordHash = userData.contrasena ? await userServices.hashPassword(userData.contrasena) : null
                 const result = await userServices.insertUser({
-                    nombre: userData.nombre.trim(),
+                    nombre,
                     correo,
                     passwordHash,
                     encryptionSalt: crypto.randomBytes(16).toString('base64'),
@@ -204,11 +221,33 @@ router.post('/api/org/users/batch', authenticate, async (req, res) => {
                 user = { _id: result.insertedId }
                 await userServices.setUserMainOrg(result.insertedId, id_organizacion)
                 createdUsers.push(correo)
+                invitados.push({ _id: result.insertedId, nombre, correo })
+            } else if (!miembrosPrevios.has(String(user._id))) {
+                agregados.push(user._id)
             }
             usersByRole[role].push(user._id)
         }
 
         await orgServices.addUsersToOrgByRole(id_organizacion, usersByRole)
+        registrarActividad({
+            contenedor: { id_organizacion },
+            id_usuario: req.user._id,
+            accion: ACCIONES.USUARIOS_AGREGADOS,
+            detalle: { cantidad: usuarios.length },
+        })
+
+        const nombreOrganizacion = organizacion?.nombre || 'tu organización'
+        for (const invitado of invitados) {
+            invitarUsuario(invitado, { organizacion: nombreOrganizacion })
+        }
+        notificar({
+            destinatarios: agregados,
+            tipo: 'agregado_organizacion',
+            datos: { organizacion: nombreOrganizacion },
+            id_organizacion,
+            excluir: req.user._id,
+        })
+
         res.status(200).json({ message: 'Usuarios agregados correctamente.', createdUsers, total: usuarios.length })
     } catch (error) {
         console.error('Error al agregar usuarios a la organización:', error)

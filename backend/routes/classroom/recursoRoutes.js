@@ -4,6 +4,8 @@ const router = express.Router()
 const asignServices = require('../../services/asignServices')
 const orgServices = require('../../services/orgServices')
 const recursoServices = require('../../services/recursoServices')
+const tareaServices = require('../../services/tareaServices')
+const { ACCIONES, registrarActividad } = require('../../services/actividadServices')
 const { ObjectId } = require('../../config/mongo')
 
 const { authenticate, getUserFromToken } = require('../../utils/auth')
@@ -43,8 +45,14 @@ const validarNombre = (nombre) => {
 // solo metadatos, nunca el contenido cifrado
 const sinContenido = ({ recurso, ...metadatos }) => metadatos
 
-// un recurso pertenece a una asignatura o, para archivos generales como banners, a una organización
+// un recurso pertenece a una asignatura, a una organización (archivos generales como banners)
+// o a una tarea (archivos de la entrega de un estudiante, privados para él y los docentes)
 const puedeVerContenedor = async (contenedor, userId) => {
+    if (contenedor.id_tarea) {
+        if (String(contenedor.usuario) === String(userId)) return true
+        const tarea = await tareaServices.findTareaById(contenedor.id_tarea)
+        return Boolean(tarea && await asignServices.findDocenteInAsign(tarea.id_asignatura, userId))
+    }
     if (contenedor.id_organizacion) {
         return Boolean(await orgServices.findUserInOrg(contenedor.id_organizacion, userId))
     }
@@ -54,30 +62,49 @@ const puedeVerContenedor = async (contenedor, userId) => {
     )
 }
 
-// en asignaturas editan los docentes; en organizaciones, los administradores
-const puedeEditarContenedor = async (contenedor, userId) => {
-    if (contenedor.id_organizacion) {
-        return Boolean(await orgServices.findAdminInOrg(contenedor.id_organizacion, userId))
+/**
+ * Comprueba si el usuario puede subir, renombrar o eliminar archivos del contenedor.
+ * En asignaturas editan los docentes y en organizaciones los administradores; en una tarea,
+ * cada estudiante edita solo sus archivos (ver tareaServices.motivoSinEdicionEntrega).
+ * @returns {Promise<null | { status: number, message: string }>} null si puede editar
+ */
+const motivoSinEdicion = async (contenedor, userId, mensajeSinPermiso) => {
+    if (contenedor.id_tarea) {
+        return tareaServices.motivoSinEdicionEntrega(contenedor, userId)
     }
-    return Boolean(await asignServices.findDocenteInAsign(contenedor.id_asignatura, userId))
+    const puede = contenedor.id_organizacion
+        ? await orgServices.findAdminInOrg(contenedor.id_organizacion, userId)
+        : await asignServices.findDocenteInAsign(contenedor.id_asignatura, userId)
+    return puede ? null : { status: 403, message: mensajeSinPermiso }
+}
+
+// los archivos de entregas no se registran uno a uno; se registra el envío de la entrega
+const registrarActividadRecurso = (contenedor, entrada) => {
+    if (contenedor.id_tarea) return
+    registrarActividad({ contenedor, ...entrada })
 }
 
 router.post('/api/recurso/upload', authenticate, subirArchivo, async (req, res) => {
     try {
         const user = req.user
-        const { id_asignatura, id_organizacion } = req.body
+        const { id_asignatura, id_organizacion, id_tarea } = req.body
 
-        // se sube a una asignatura o a una organización, nunca a ambas
-        if (!req.file || Boolean(id_asignatura) === Boolean(id_organizacion)) {
+        // se sube a exactamente un contenedor: asignatura, organización o tarea
+        const destinos = [id_asignatura, id_organizacion, id_tarea].filter(Boolean)
+        if (!req.file || destinos.length !== 1) {
             return res.status(400).json({ message: 'Faltan campos obligatorios.' })
         }
-        if (id_organizacion && !ObjectId.isValid(id_organizacion)) {
-            return res.status(400).json({ message: 'La organización no es válida.' })
+        if ((id_organizacion || id_tarea) && !ObjectId.isValid(destinos[0])) {
+            return res.status(400).json({ message: 'El destino del archivo no es válido.' })
         }
-        const contenedor = id_organizacion ? { id_organizacion } : { id_asignatura }
+        // en una tarea el archivo pertenece a quien lo sube, que es quien entrega
+        const contenedor = id_tarea
+            ? { id_tarea, usuario: user._id }
+            : id_organizacion ? { id_organizacion } : { id_asignatura }
 
-        if (!await puedeEditarContenedor(contenedor, user._id)) {
-            return res.status(403).json({ message: 'No tienes permisos para subir archivos aquí.' })
+        const motivo = await motivoSinEdicion(contenedor, user._id, 'No tienes permisos para subir archivos aquí.')
+        if (motivo) {
+            return res.status(motivo.status).json({ message: motivo.message })
         }
 
         const nombre = validarNombre(decodificarNombre(req.file.originalname))
@@ -102,15 +129,18 @@ router.post('/api/recurso/upload', authenticate, subirArchivo, async (req, res) 
             usuario: user._id,
             createdAt: ahora,
             updatedAt: ahora,
-            limite_apertura: null,
-            limite_cierre: null,
-            id_tarea: null,
         }
 
         const result = await recursoServices.createRecurso(archiv)
         if (!result) {
             return res.status(503).json({ message: 'Base de datos no disponible.' })
         }
+
+        registrarActividadRecurso(contenedor, {
+            id_usuario: user._id,
+            accion: ACCIONES.RECURSO_SUBIDO,
+            detalle: { nombre },
+        })
 
         res.status(201).json({ _id: result.insertedId, ...sinContenido(archiv) })
     } catch (error) {
@@ -135,7 +165,7 @@ router.get('/api/recurso/:id/descarga', authenticate, async (req, res) => {
         }
 
         const contenido = await recursoServices.descifrarRecurso(archiv.recurso, archiv.usuario)
-        // recursos creados por /api/recurso/add guardan texto u objetos en vez de un archivo en base64
+        // recursos antiguos (de la ruta /api/recurso/add, ya eliminada) guardan texto u objetos en vez de base64
         const buffer = archiv.codificacion === 'base64'
             ? Buffer.from(contenido, 'base64')
             : Buffer.from(typeof contenido === 'string' ? contenido : JSON.stringify(contenido), 'utf8')
@@ -166,8 +196,9 @@ router.patch('/api/recurso/:id', authenticate, async (req, res) => {
             return res.status(404).json({ message: 'Recurso no encontrado.' })
         }
         const contenedor = recursoServices.getContenedor(archiv)
-        if (!await puedeEditarContenedor(contenedor, user._id)) {
-            return res.status(403).json({ message: 'No tienes permisos para editar este recurso.' })
+        const motivo = await motivoSinEdicion(contenedor, user._id, 'No tienes permisos para editar este recurso.')
+        if (motivo) {
+            return res.status(motivo.status).json({ message: motivo.message })
         }
         if (await recursoServices.existeNombreEnContenedor(contenedor, nombre, id)) {
             return res.status(409).json({ message: 'Ya existe un archivo con ese nombre.' })
@@ -175,6 +206,11 @@ router.patch('/api/recurso/:id', authenticate, async (req, res) => {
 
         const cambios = { nombre, updatedAt: new Date() }
         await recursoServices.updateRecurso(id, cambios)
+        registrarActividadRecurso(contenedor, {
+            id_usuario: user._id,
+            accion: ACCIONES.RECURSO_RENOMBRADO,
+            detalle: { anterior: archiv.nombre, nombre },
+        })
         res.status(200).json(sinContenido({ ...archiv, ...cambios }))
     } catch (error) {
         console.error('Error al editar el recurso:', error)
@@ -191,52 +227,23 @@ router.delete('/api/recurso/:id', authenticate, async (req, res) => {
         if (!archiv) {
             return res.status(404).json({ message: 'Recurso no encontrado.' })
         }
-        if (!await puedeEditarContenedor(recursoServices.getContenedor(archiv), user._id)) {
-            return res.status(403).json({ message: 'No tienes permisos para eliminar este recurso.' })
+        const contenedor = recursoServices.getContenedor(archiv)
+        const motivo = await motivoSinEdicion(contenedor, user._id, 'No tienes permisos para eliminar este recurso.')
+        if (motivo) {
+            return res.status(motivo.status).json({ message: motivo.message })
         }
 
         await recursoServices.deleteRecurso(id)
+        // se guarda el nombre porque el recurso ya no existirá para consultarlo
+        registrarActividadRecurso(contenedor, {
+            id_usuario: user._id,
+            accion: ACCIONES.RECURSO_ELIMINADO,
+            detalle: { nombre: archiv.nombre },
+        })
         res.status(200).json({ message: 'Recurso eliminado correctamente.' })
     } catch (error) {
         console.error('Error al eliminar el recurso:', error)
         res.status(500).json({ message: 'No se pudo eliminar el recurso.' })
-    }
-})
-
-router.post('/api/recurso/add', authenticate, async (req, res) => {
-    try {
-        const user = await getUserFromToken(req.headers.authorization.split(' ')[1])
-        const { id_asignatura, nombre, ruta, recurso, id_tarea, limite_apertura, limite_cierre, fecha_entrega } = req.body //todo: definir tarea
-
-        if (!id_asignatura || !nombre) {
-            return res.status(400).json({ message: 'Faltan campos obligatorios.' })
-        }
-
-        if (!await asignServices.findDocenteInAsign(id_asignatura, user._id)) {
-            return res.status(403).json({ message: 'No tienes permisos para crear un archivo en esta asignatura.' })
-        }
-        if (id_tarea && !await asignServices.findUsuarioInAsign(id_asignatura, user._id)) {
-            return res.status(403).json({ message: 'No tienes permisos para subir una respuesta a tareas en esta asignatura.' })
-        }
-
-        const recursoCifrado = await recursoServices.cifrarRecurso(recurso, user._id);
-
-        const archiv = await recursoServices.createRecurso({
-            id_asignatura,
-            nombre,
-            ruta,
-            recurso: recursoCifrado,
-            usuario: user._id,
-            createdAt: new Date(),
-            limite_apertura: limite_apertura ? new Date(limite_apertura) : null, //apertura y cierre son para recursos descargables dentro de la asignatura
-            limite_cierre: limite_cierre ? new Date(limite_cierre) : null,
-            fecha_entrega: fecha_entrega ? new Date(fecha_entrega) : new Date(), //fecha de entrega es para entregas a tareas
-            id_tarea: id_tarea || null,
-        })
-        res.status(200).json(archiv)
-    } catch (error) {
-        console.error('Error al crear el archivo:', error)
-        res.status(500).json({ message: 'No se pudo crear el archivo.' })
     }
 })
 

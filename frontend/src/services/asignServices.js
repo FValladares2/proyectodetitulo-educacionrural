@@ -1,5 +1,4 @@
-import { getAuthToken } from './authServices'
-const apiBase = import.meta.env.VITE_API_BASE_URL || ''
+import { apiFetch, esAbortError } from './apiClient'
 
 const fetchAsignaturas = async (
   controller,
@@ -20,11 +19,6 @@ const fetchAsignaturas = async (
   setError('')
 
   try {
-    const token = getAuthToken()
-    if (!token) {
-      throw new Error('Sesión no válida o expirada.')
-    }
-
     // 'acceso' ordena por el último acceso del usuario; 'creado' por fecha de creación
     const ORDENES = {
       acceso: ['ultimoAcceso', 'desc'],
@@ -54,22 +48,16 @@ const fetchAsignaturas = async (
       params.append('activo', activoFilter)
     }
 
-    const response = await fetch(`${apiBase}/api/asign/user?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${token}` },
+    const data = await apiFetch(`/api/asign/user?${params.toString()}`, {
       signal: controller.signal,
+      mensajeError: 'Error al obtener las asignaturas.',
     })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Error al obtener las asignaturas.')
-    }
 
     setAsignaturas(data.data || [])
     setTotal(data.total || 0)
     setTotalPages(data.totalPages || 1)
   } catch (err) {
-    if (err.name === 'AbortError') return
+    if (esAbortError(err)) return
     console.error('Error al consultar asignaturas:', err)
     setError(err.message || 'No se pudieron cargar las asignaturas.')
     setAsignaturas([])
@@ -80,10 +68,6 @@ const fetchAsignaturas = async (
 
 // lista sin paginar (hasta `limit`) de las asignaturas activas del usuario en la organización
 const fetchAsignaturasUsuario = async (id_organizacion, signal = undefined, limit = 100) => {
-  const token = getAuthToken()
-  if (!token) {
-    throw new Error('Sesión no válida o expirada.')
-  }
   const params = new URLSearchParams({
     id_organizacion,
     page: '1',
@@ -91,32 +75,19 @@ const fetchAsignaturasUsuario = async (id_organizacion, signal = undefined, limi
     sortBy: 'nombre',
     order: 'asc',
   })
-  const response = await fetch(`${apiBase}/api/asign/user?${params.toString()}`, {
-    headers: { Authorization: `Bearer ${token}` },
+  const data = await apiFetch(`/api/asign/user?${params.toString()}`, {
     signal,
+    mensajeError: 'Error al obtener las asignaturas.',
   })
-  const data = await response.json()
-  if (!response.ok) {
-    throw new Error(data.message || 'Error al obtener las asignaturas.')
-  }
   return data.data || []
 }
 
 const fetchAsignaturaById = async (id, signal = undefined) => {
   try {
-    const token = getAuthToken()
-    if (!token) {
-      throw new Error('Sesión no válida o expirada.')
-    }
-    const response = await fetch(`${apiBase}/api/asign/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: signal,
+    return await apiFetch(`/api/asign/${id}`, {
+      signal,
+      mensajeError: 'Error al obtener la asignatura.',
     })
-    const data = await response.json()
-    if (!response.ok) {
-      throw new Error(data.message || 'Error al obtener la asignatura.')
-    }
-    return data
   } catch (error) {
     console.error('Error al obtener la asignatura:', error)
     return null
@@ -125,29 +96,14 @@ const fetchAsignaturaById = async (id, signal = undefined) => {
 
 const updateAsignaturaById = async (id, asignatura, signal = undefined) => {
   try {
-    const token = getAuthToken()
-    if (!token) {
-      throw new Error('Sesión no válida o expirada.')
-    }
-
-    const response = await fetch(`${apiBase}/api/asign/${id}`, {
+    return await apiFetch(`/api/asign/${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(asignatura),
+      body: asignatura,
       signal,
+      mensajeError: 'Error al actualizar la asignatura.',
     })
-
-    const data = await response.json()
-    if (!response.ok) {
-      throw new Error(data.message || 'Error al actualizar la asignatura.')
-    }
-
-    return data
   } catch (error) {
-    if (error.name === 'AbortError') return null
+    if (esAbortError(error)) return null
     console.error('Error al actualizar la asignatura:', error)
     return null
   }
@@ -155,21 +111,11 @@ const updateAsignaturaById = async (id, asignatura, signal = undefined) => {
 
 const getAsignUsers = async (id, signal = undefined) => {
   try {
-    const token = getAuthToken()
-    if (!token) {
-      throw new Error('Sesión no válida o expirada.')
-    }
-    const response = await fetch(`${apiBase}/api/asign/${id}/users`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal,
-    })
-    if (!response.ok) {
-      return { teachers: [], users: [] }
-    }
-    const data = await response.json()
-    return data
+    return await apiFetch(`/api/asign/${id}/users`, { signal })
   } catch (error) {
-    if (error.name === 'AbortError') return null
+    if (esAbortError(error)) return null
+    // si la sesión es válida pero el endpoint falla, se muestra la lista vacía
+    if (error.status) return { teachers: [], users: [] }
     console.warn('Endpoint de usuarios de asignatura no disponible aún:', error)
     return { admins: [], teachers: [], users: [] }
   }
@@ -177,50 +123,32 @@ const getAsignUsers = async (id, signal = undefined) => {
 
 const addUsersToAsignBatch = async (id_asignatura, usuarios, signal = undefined) => {
   try {
-    const token = getAuthToken()
-    if (!token) {
-      throw new Error('Sesión no válida o expirada.')
-    }
-    const response = await fetch(`${apiBase}/api/asign/users/batch`, {
+    return await apiFetch('/api/asign/users/batch', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        id_asignatura,
-        usuarios,
-      }),
+      body: { id_asignatura, usuarios },
       signal,
+      mensajeError: 'No se pudieron agregar los usuarios a la asignatura.',
     })
-    const data = await response.json()
-    if (!response.ok) {
-      throw new Error(data.message || 'No se pudieron agregar los usuarios a la asignatura.')
-    }
-    return data
   } catch (error) {
-    if (error.name === 'AbortError') return null
+    if (esAbortError(error)) return null
     throw error
   }
 }
 
 // img es "recurso:<id>" con una imagen de la asignatura, o null para volver al banner por defecto
-const updateAsignaturaImg = async (id, img) => {
-  const token = getAuthToken()
-  if (!token) {
-    throw new Error('Sesión no válida o expirada.')
-  }
-  const response = await fetch(`${apiBase}/api/asign/${id}/img`, {
+const updateAsignaturaImg = (id, img) =>
+  apiFetch(`/api/asign/${id}/img`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ img }),
+    body: { img },
+    mensajeError: 'No se pudo actualizar la imagen de la asignatura.',
   })
-  const data = await response.json()
-  if (!response.ok) {
-    throw new Error(data.message || 'No se pudo actualizar la imagen de la asignatura.')
-  }
-  return data
-}
+
+const createAsignatura = (asignatura) =>
+  apiFetch('/api/asign/create', {
+    method: 'POST',
+    body: asignatura,
+    mensajeError: 'No se pudo crear la asignatura.',
+  })
 
 const asignServices = {
   fetchAsignaturas,
@@ -228,6 +156,7 @@ const asignServices = {
   fetchAsignaturaById,
   updateAsignaturaById,
   updateAsignaturaImg,
+  createAsignatura,
   getAsignUsers,
   addUsersToAsignBatch,
 }
@@ -238,6 +167,7 @@ export {
   fetchAsignaturaById,
   updateAsignaturaById,
   updateAsignaturaImg,
+  createAsignatura,
   getAsignUsers,
   addUsersToAsignBatch,
 }

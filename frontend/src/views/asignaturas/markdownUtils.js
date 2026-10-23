@@ -1,3 +1,6 @@
+// evita que corchetes en un nombre rompan la sintaxis de un enlace [texto](destino)
+const escaparTextoEnlace = (texto) => texto.replace(/[\\[\]]/g, '\\$&')
+
 const stripInlineMarkdown = (text) =>
   text
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
@@ -69,4 +72,4 @@ const createHeadingIdFactory = () => {
   }
 }
 
-export { createHeadingIdFactory, extractHeadings }
+export { createHeadingIdFactory, escaparTextoEnlace, extractHeadings }

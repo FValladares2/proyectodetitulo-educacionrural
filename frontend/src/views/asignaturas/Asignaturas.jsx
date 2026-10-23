@@ -31,8 +31,6 @@ import { fetchAsignaturas } from 'src/services/asignServices'
 import { getAuthToken, getAuthUser } from 'src/services/authServices'
 import { getInitialOrgId, getOrgsWithUser } from 'src/services/orgServices'
 
-const apiBase = import.meta.env.VITE_API_BASE_URL || ''
-
 const Asignaturas = () => {
   const navigate = useNavigate()
 

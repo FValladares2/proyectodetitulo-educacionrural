@@ -56,6 +56,7 @@ import {
 
 import { AppBreadcrumb } from './index'
 import { AppHeaderDropdown } from './header/index'
+import NotificacionesHeader from './notificaciones/NotificacionesHeader'
 
 /**
  * AppHeader functional component
@@ -97,6 +98,7 @@ const AppHeader = () => {
         </CHeaderToggler>
 
         <CHeaderNav className="ms-auto">
+          <NotificacionesHeader />
           <CNavItem>
             <CNavLink href="#">
               <CIcon icon={cilInfo} size="lg" />

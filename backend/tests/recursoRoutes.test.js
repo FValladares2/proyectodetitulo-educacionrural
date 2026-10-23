@@ -63,6 +63,12 @@ jest.mock('../services/recursoServices', () => {
   }
 })
 
+jest.mock('../services/actividadServices', () => ({
+  ACCIONES: jest.requireActual('../services/actividadServices').ACCIONES,
+  registrarActividad: jest.fn(async () => null),
+}))
+const { ACCIONES, registrarActividad: mockRegistrarActividad } = require('../services/actividadServices')
+
 const recursoRoutes = require('../routes/classroom/recursoRoutes')
 
 const app = express()
@@ -83,7 +89,10 @@ const subirAOrganizacion = (nombre, usuario = 'docente') =>
   subir(nombre, usuario, 'id_organizacion', ORGANIZACION_ID)
 
 describe('Rutas de recursos (archivos)', () => {
-  beforeEach(() => mockDb.clear())
+  beforeEach(() => {
+    mockDb.clear()
+    mockRegistrarActividad.mockClear()
+  })
 
   test('sube un archivo cifrado, conserva tildes en el nombre y no devuelve el contenido', async () => {
     const res = await subir('Guía de evaluación ñandú.png')
@@ -227,6 +236,48 @@ describe('Rutas de recursos (archivos)', () => {
       expect((await subir('igual.png')).status).toBe(201)
       expect((await subirAOrganizacion('igual.png')).status).toBe(409)
     })
+  })
+})
+
+describe('registro de actividad de recursos', () => {
+  beforeEach(() => {
+    mockDb.clear()
+    mockRegistrarActividad.mockClear()
+  })
+
+  test('subir, renombrar y eliminar registran la acción con el nombre del archivo', async () => {
+    const { body } = await subir('guia.pdf')
+    await request(app).patch(`/api/recurso/${body._id}`).send({ nombre: 'guia-v2.pdf' })
+    await request(app).delete(`/api/recurso/${body._id}`)
+
+    const llamadas = mockRegistrarActividad.mock.calls.map(([entrada]) => entrada)
+    expect(llamadas.map((e) => e.accion)).toEqual([
+      ACCIONES.RECURSO_SUBIDO,
+      ACCIONES.RECURSO_RENOMBRADO,
+      ACCIONES.RECURSO_ELIMINADO,
+    ])
+    expect(llamadas[0]).toMatchObject({ contenedor: { id_asignatura: ASIGNATURA_ID }, detalle: { nombre: 'guia.pdf' } })
+    expect(llamadas[1].detalle).toEqual({ anterior: 'guia.pdf', nombre: 'guia-v2.pdf' })
+    // el nombre eliminado queda registrado aunque el recurso ya no exista
+    expect(llamadas[2].detalle).toEqual({ nombre: 'guia-v2.pdf' })
+    expect(String(llamadas[0].id_usuario)).toBe(String(mockDocenteId))
+  })
+
+  test('los recursos de organización registran la actividad en la organización', async () => {
+    await subirAOrganizacion('logo.png')
+    expect(mockRegistrarActividad.mock.calls[0][0].contenedor).toEqual({ id_organizacion: ORGANIZACION_ID })
+  })
+
+  test('las operaciones rechazadas no registran actividad', async () => {
+    const { body } = await subir('a.png')
+    mockRegistrarActividad.mockClear()
+
+    await subir('b.png', 'alumno')
+    await subir('a.png')
+    await request(app).patch(`/api/recurso/${body._id}`).set('x-test-user', 'alumno').send({ nombre: 'x.png' })
+    await request(app).delete(`/api/recurso/${body._id}`).set('x-test-user', 'alumno')
+
+    expect(mockRegistrarActividad).not.toHaveBeenCalled()
   })
 })
 

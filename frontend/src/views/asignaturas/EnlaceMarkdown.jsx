@@ -5,13 +5,20 @@ import IconoRecurso from 'src/components/recursos/IconoRecurso'
 import { descargarRecurso } from '../../services/recursoServices'
 import { getRecursoId } from 'src/components/recursos/recursoSrc'
 import { RecursosAsignaturaContext } from './recursoMarkdown'
+import TareaEnlace from './TareaEnlace'
+import { getTareaId } from './tareaMarkdown'
 
 // react-markdown entrega también el nodo hast, que no debe llegar al <a>
 const EnlaceMarkdown = ({ href, children, node, ...props }) => {
   const recursoId = getRecursoId(href)
+  const tareaId = getTareaId(href)
   const { recursos, estado } = useContext(RecursosAsignaturaContext)
   const [descargando, setDescargando] = useState(false)
   const [error, setError] = useState('')
+
+  if (tareaId) {
+    return <TareaEnlace tareaId={tareaId}>{children}</TareaEnlace>
+  }
 
   if (!recursoId) {
     return (

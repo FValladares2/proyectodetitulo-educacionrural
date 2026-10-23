@@ -1,50 +1,31 @@
 import { limpiarImagenesRecurso } from 'src/components/recursos/recursoSrc'
-const apiBase = import.meta.env.VITE_API_BASE_URL || ''
+import { apiFetch } from './apiClient'
+import { limpiarCacheOffline } from './offlineCache'
 
-async function loginUser(credentials) {
-  try {
-    const response = await fetch(`${apiBase}/api/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(credentials),
-    })
+const loginUser = (credentials) =>
+  apiFetch('/api/auth/login', {
+    method: 'POST',
+    body: credentials,
+    auth: false,
+    mensajeError: 'Error al iniciar sesión',
+  })
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.message || 'Error al iniciar sesión')
-    }
+const registerUser = (userData) =>
+  apiFetch('/api/auth/register', {
+    method: 'POST',
+    body: userData,
+    auth: false,
+    mensajeError: 'Error al registrar el usuario',
+  })
 
-    const data = await response.json()
-    return data
-  } catch (error) {
-    throw error
-  }
-}
-
-async function registerUser(userData) {
-  console.log('Sending request to API: /auth/register')
-  try {
-    const response = await fetch(`${apiBase}/api/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(userData),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.message || 'Error al registrar el usuario')
-    }
-
-    const data = await response.json()
-    return data
-  } catch (error) {
-    throw error
-  }
-}
+// con el token del enlace de invitación que recibe por correo un usuario nuevo
+const establecerContrasena = (token, contrasena) =>
+  apiFetch('/api/auth/establecer-contrasena', {
+    method: 'POST',
+    body: { token, contrasena },
+    auth: false,
+    mensajeError: 'No se pudo definir la contraseña.',
+  })
 
 const getAuthToken = () => {
   return localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
@@ -57,6 +38,8 @@ const getAuthUser = () => {
 
 const clearAuthSession = () => {
   limpiarImagenesRecurso()
+  // en equipos compartidos, el siguiente usuario no debe ver datos guardados sin conexión
+  limpiarCacheOffline()
   localStorage.removeItem('authToken')
   localStorage.removeItem('authUser')
   localStorage.removeItem('userId')
@@ -65,6 +48,20 @@ const clearAuthSession = () => {
   sessionStorage.removeItem('userId')
 }
 
-const authServices = { loginUser, registerUser, getAuthToken, getAuthUser, clearAuthSession }
-export { loginUser, registerUser, getAuthToken, getAuthUser, clearAuthSession }
+const authServices = {
+  loginUser,
+  registerUser,
+  establecerContrasena,
+  getAuthToken,
+  getAuthUser,
+  clearAuthSession,
+}
+export {
+  loginUser,
+  registerUser,
+  establecerContrasena,
+  getAuthToken,
+  getAuthUser,
+  clearAuthSession,
+}
 export default authServices

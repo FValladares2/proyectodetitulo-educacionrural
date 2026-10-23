@@ -24,6 +24,7 @@ import CIcon from '@coreui/icons-react'
 import { logo } from 'src/assets/brand/logo'
 import { eye } from 'src/assets/icons/eye'
 import { loginUser } from 'src/services/authServices'
+import { asignarCacheOffline } from 'src/services/offlineCache'
 
 const Login = () => {
   const [showPassword, setShowPassword] = React.useState(false)
@@ -50,7 +51,8 @@ const Login = () => {
   }
 
   const finishLogin = useCallback(
-    (result) => {
+    async (result) => {
+      await asignarCacheOffline(result.user._id)
       if (staySignedIn) {
         localStorage.setItem('authToken', result.token)
         localStorage.setItem('authUser', JSON.stringify(result.user))

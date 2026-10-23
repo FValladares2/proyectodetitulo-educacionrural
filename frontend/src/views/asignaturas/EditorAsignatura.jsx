@@ -19,6 +19,7 @@ import PropTypes from 'prop-types'
 import { useState } from 'react'
 import '@mdxeditor/editor/style.css'
 import InsertarRecursoToolbar from './InsertarRecursoToolbar'
+import InsertarTareaToolbar from './InsertarTareaToolbar'
 import { resolverRecursoSrc } from 'src/components/recursos/recursoSrc'
 
 const spanishTranslations = {
@@ -108,6 +109,7 @@ const EditorAsignatura = ({ asignatura, markup = '', onChange, onSave }) => {
                 <ListsToggle />
                 <CreateLink />
                 <InsertarRecursoToolbar asignatura={asignatura} />
+                {asignatura?._id && <InsertarTareaToolbar idAsignatura={String(asignatura._id)} />}
               </>
             ),
           }),

@@ -19,9 +19,9 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilEnvelopeClosed, cilPlus } from '@coreui/icons'
+import { createAsignatura } from 'src/services/asignServices'
 import { getAuthToken, getAuthUser } from 'src/services/authServices'
-
-const apiBase = import.meta.env.VITE_API_BASE_URL || ''
+import { getOrgsWithUser } from 'src/services/orgServices'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -64,17 +64,10 @@ const NewAsignModal = ({ visible, onClose, onSuccess }) => {
     if (visible) {
       const fetchOrgDetails = async () => {
         try {
-          const token = getAuthToken()
-          if (!token) return
+          if (!getAuthToken()) return
 
-          const response = await fetch(`${apiBase}/api/org/user`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          })
-
-          if (response.ok && isMounted) {
-            const orgs = await response.json()
+          const orgs = await getOrgsWithUser()
+          if (orgs && isMounted) {
             if (Array.isArray(orgs) && orgs.length > 0) {
               const currentOrgId = getInitialOrgId()
               const matchedOrg = currentOrgId
@@ -156,25 +149,11 @@ const NewAsignModal = ({ visible, onClose, onSuccess }) => {
 
     setLoading(true)
     try {
-      const token = getAuthToken()
-      const response = await fetch(`${apiBase}/api/asign/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          nombre: trimmedNombre,
-          id_organizacion: orgIdToUse,
-          correos: finalEmails,
-        }),
+      const data = await createAsignatura({
+        nombre: trimmedNombre,
+        id_organizacion: orgIdToUse,
+        correos: finalEmails,
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || 'No se pudo crear la asignatura.')
-      }
 
       resetForm()
       if (onSuccess) {

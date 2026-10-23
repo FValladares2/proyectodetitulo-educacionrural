@@ -27,10 +27,10 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilTrash } from '@coreui/icons'
-import { getAuthToken, getAuthUser } from 'src/services/authServices'
-import { getInitialOrgId } from 'src/services/orgServices'
+import { apiFetch, esAbortError } from 'src/services/apiClient'
+import { getAuthUser } from 'src/services/authServices'
+import { addUsersToOrgBatch, getInitialOrgId } from 'src/services/orgServices'
 
-const apiBase = import.meta.env.VITE_API_BASE_URL || ''
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const ROLE_OPTIONS = [
@@ -60,15 +60,13 @@ const AddUserToOrgModal = ({ visible, onClose, onSuccess }) => {
     const fetchOrganization = async () => {
       setLoadingOrganization(true)
       try {
-        const response = await fetch(`${apiBase}/api/org/${organizationId}`, {
-          headers: { Authorization: `Bearer ${getAuthToken()}` },
+        const data = await apiFetch(`/api/org/${organizationId}`, {
           signal: controller.signal,
+          mensajeError: 'No se pudo obtener la organización.',
         })
-        const data = await response.json()
-        if (!response.ok) throw new Error(data.message || 'No se pudo obtener la organización.')
         setOrganization(data)
       } catch (error) {
-        if (error.name !== 'AbortError') setErrorMessage(error.message)
+        if (!esAbortError(error)) setErrorMessage(error.message)
       } finally {
         if (!controller.signal.aborted) setLoadingOrganization(false)
       }
@@ -110,8 +108,9 @@ const AddUserToOrgModal = ({ visible, onClose, onSuccess }) => {
       setFormError('Ingresa un correo electrónico válido.')
       return
     }
-    if (isNewUser && form.contrasena.length < 8) {
-      setFormError('La contraseña debe tener al menos 8 caracteres.')
+    // opcional: sin contraseña, el usuario recibe un correo para definirla
+    if (isNewUser && form.contrasena && form.contrasena.length < 8) {
+      setFormError('La contraseña inicial debe tener al menos 8 caracteres, o déjala vacía.')
       return
     }
     if (pendingUsers.some((user) => user.correo === correo)) {
@@ -124,7 +123,7 @@ const AddUserToOrgModal = ({ visible, onClose, onSuccess }) => {
       {
         nombre: nombre || 'Usuario existente',
         correo,
-        contrasena: isNewUser ? form.contrasena : undefined,
+        contrasena: isNewUser && form.contrasena ? form.contrasena : undefined,
         rol: form.rol,
         esNuevo: isNewUser,
       },
@@ -146,19 +145,7 @@ const AddUserToOrgModal = ({ visible, onClose, onSuccess }) => {
     setLoading(true)
     setErrorMessage('')
     try {
-      const response = await fetch(`${apiBase}/api/org/users/batch`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
-        body: JSON.stringify({
-          id_organizacion: organizationId,
-          usuarios: pendingUsers,
-        }),
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.message || 'No se pudieron agregar los usuarios.')
+      const data = await addUsersToOrgBatch(organizationId, pendingUsers)
 
       onSuccess?.(data)
       handleClose()
@@ -227,7 +214,7 @@ const AddUserToOrgModal = ({ visible, onClose, onSuccess }) => {
             </div>
             {activeTab === 'nuevo' && (
               <div className="col-md-4">
-                <CFormLabel htmlFor="usuarioContrasena">Contraseña</CFormLabel>
+                <CFormLabel htmlFor="usuarioContrasena">Contraseña inicial (opcional)</CFormLabel>
                 <CFormInput
                   id="usuarioContrasena"
                   name="contrasena"
@@ -237,7 +224,11 @@ const AddUserToOrgModal = ({ visible, onClose, onSuccess }) => {
                   disabled={loading}
                   autoComplete="new-password"
                   minLength={8}
+                  aria-describedby="usuarioContrasenaAyuda"
                 />
+                <div id="usuarioContrasenaAyuda" className="form-text">
+                  Si la dejas vacía, recibirá un correo para definirla.
+                </div>
               </div>
             )}
             <div className="col-md-6">

@@ -5,6 +5,8 @@ const classServices = require('../../services/asignServices')
 const userServices = require('../../services/userServices')
 const recursoServices = require('../../services/recursoServices')
 const accesoServices = require('../../services/accesoServices')
+const { ACCIONES, registrarActividad } = require('../../services/actividadServices')
+const { notificar } = require('../../services/notificacionServices')
 const { authenticate, getUserFromToken } = require('../../utils/auth')
 
 router.post('/api/asign/create', authenticate, async (req, res) => {
@@ -37,14 +39,30 @@ router.post('/api/asign/create', authenticate, async (req, res) => {
             createdAt: new Date(),
         })
 
+        registrarActividad({
+            contenedor: { id_asignatura: classRoom.insertedId || classRoom._id },
+            id_usuario: user._id,
+            accion: ACCIONES.ASIGNATURA_CREADA,
+            detalle: { nombre },
+        })
+
         if (Array.isArray(req.body.correos) && req.body.correos.length > 0) {
             const classId = classRoom.insertedId || classRoom._id
+            const agregados = []
             for (const correo of req.body.correos) {
                 const usuario = await userServices.findUserByUsernameOrEmail(correo)
                 if (usuario) {  
                     await classServices.addUsuarioToAsign(classId, usuario._id)
+                    agregados.push(usuario._id)
                 }
             }
+            notificar({
+                destinatarios: agregados,
+                tipo: 'agregado_asignatura',
+                datos: { asignatura: nombre },
+                id_asignatura: classId,
+                excluir: user._id,
+            })
         }
 
         res.status(200).json(classRoom)
@@ -136,6 +154,12 @@ router.put('/api/asign/:id', authenticate, async (req, res) => {
             return res.status(404).json({ message: 'Asignatura no encontrada.' })
         }
 
+        registrarActividad({
+            contenedor: { id_asignatura: id },
+            id_usuario: user._id,
+            accion: ACCIONES.MARKUP_EDITADO,
+        })
+
         res.status(200).json({ formato_markup: req.body.formato_markup })
     } catch (error) {
         console.error('Error al obtener la asignatura:', error)
@@ -160,6 +184,12 @@ router.put('/api/asign/:id/img', authenticate, async (req, res) => {
         if (!result || result.matchedCount === 0) {
             return res.status(404).json({ message: 'Asignatura no encontrada.' })
         }
+
+        registrarActividad({
+            contenedor: { id_asignatura: id },
+            id_usuario: req.user._id,
+            accion: validacion.img ? ACCIONES.BANNER_CAMBIADO : ACCIONES.BANNER_QUITADO,
+        })
 
         res.status(200).json({ img: validacion.img })
     } catch (error) {
@@ -189,6 +219,12 @@ router.put('/api/asign/addUser', authenticate, async (req, res) => {
         }
 
         await classServices.addUsuarioToAsign(id_asignatura, id_usuario)
+        registrarActividad({
+            contenedor: { id_asignatura },
+            id_usuario: user._id,
+            accion: ACCIONES.USUARIOS_AGREGADOS,
+            detalle: { cantidad: 1 },
+        })
         res.status(200).json({ message: 'Usuario agregado a la asignatura exitosamente.' })
     } catch (error) {
         console.error('Error al agregar usuario a la asignatura:', error)
@@ -294,6 +330,25 @@ router.post('/api/asign/users/batch', authenticate, async (req, res) => {
             profesores: profesoresToAdd,
             alumnos: alumnosToAdd,
         })
+
+        const totalAgregados = profesoresToAdd.length + alumnosToAdd.length
+        // solo se avisa a quienes no estaban ya en la asignatura
+        const integrantesPrevios = new Set((asignatura.usuarios || []).map(String))
+        notificar({
+            destinatarios: [...profesoresToAdd, ...alumnosToAdd].filter((id) => !integrantesPrevios.has(String(id))),
+            tipo: 'agregado_asignatura',
+            datos: { asignatura: asignatura.nombre },
+            id_asignatura,
+            excluir: user._id,
+        })
+        if (totalAgregados > 0) {
+            registrarActividad({
+                contenedor: { id_asignatura },
+                id_usuario: user._id,
+                accion: ACCIONES.USUARIOS_AGREGADOS,
+                detalle: { cantidad: totalAgregados },
+            })
+        }
 
         res.status(200).json({
             message: 'Usuarios agregados correctamente a la asignatura.',

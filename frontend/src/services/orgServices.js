@@ -1,5 +1,5 @@
-import { getAuthToken, getAuthUser } from './authServices'
-const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:8064'
+import { apiFetch } from './apiClient'
+import { getAuthUser } from './authServices'
 
 const getInitialOrgId = () => {
   const storedOrg = localStorage.getItem('userOrg') || sessionStorage.getItem('userOrg')
@@ -12,19 +12,10 @@ const getInitialOrgId = () => {
 
 const getOrgById = async (id, signal = undefined) => {
   try {
-    const token = getAuthToken()
-    if (!token) {
-      throw new Error('Sesión no válida o expirada.')
-    }
-    const response = await fetch(`${apiBase}/api/org/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: signal,
+    return await apiFetch(`/api/org/${id}`, {
+      signal,
+      mensajeError: 'Error al obtener la organización.',
     })
-    const data = await response.json()
-    if (!response.ok) {
-      throw new Error(data.message || 'Error al obtener la organización.')
-    }
-    return data
   } catch (error) {
     console.error('Error al obtener la organización:', error)
     return null
@@ -33,19 +24,10 @@ const getOrgById = async (id, signal = undefined) => {
 
 const getOrgsWithUser = async (signal = undefined) => {
   try {
-    const token = getAuthToken()
-    if (!token) {
-      throw new Error('Sesión no válida o expirada.')
-    }
-    const response = await fetch(`${apiBase}/api/org/user`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: signal,
+    return await apiFetch('/api/org/user', {
+      signal,
+      mensajeError: 'Error al obtener organizaciones con usuario.',
     })
-    const data = await response.json()
-    if (!response.ok) {
-      throw new Error(data.message || 'Error al obtener organizaciones con usuario.')
-    }
-    return data
   } catch (error) {
     console.error('Error al obtener organizaciones con usuario:', error)
     return null
@@ -54,19 +36,10 @@ const getOrgsWithUser = async (signal = undefined) => {
 
 const getUserBatchBasicInfo = async (id_organizacion, signal = undefined) => {
   try {
-    const token = getAuthToken()
-    if (!token) {
-      throw new Error('Sesión no válida o expirada.')
-    }
-    const response = await fetch(`${apiBase}/api/users/batch/${id_organizacion}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: signal,
+    return await apiFetch(`/api/users/batch/${id_organizacion}`, {
+      signal,
+      mensajeError: 'Error al obtener la información de los usuarios.',
     })
-    const data = await response.json()
-    if (!response.ok) {
-      throw new Error(data.message || 'Error al obtener la información de los usuarios.')
-    }
-    return data
   } catch (error) {
     console.error('Error al obtener la información de los usuarios:', error)
     return null
@@ -75,25 +48,12 @@ const getUserBatchBasicInfo = async (id_organizacion, signal = undefined) => {
 
 const updateInitialOrgId = async (id_organizacion) => {
   try {
-    const token = getAuthToken()
-    if (!token) {
-      throw new Error('Sesión no válida o expirada.')
-    }
-    const response = await fetch(`${apiBase}/api/org/user/update`, {
+    const data = await apiFetch('/api/org/user/update', {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ id_organizacion }),
+      body: { id_organizacion },
+      mensajeError: 'Error al cambiar de organización.',
     })
-    const data = await response.json()
-    if (!response.ok) {
-      throw new Error(data.message || 'Error al cambiar de organización.')
-    }
-
     localStorage.setItem('userOrg', id_organizacion)
-
     return data
   } catch (error) {
     console.error('Error al cambiar de organización:', error)
@@ -102,22 +62,19 @@ const updateInitialOrgId = async (id_organizacion) => {
 }
 
 // img es "recurso:<id>" con una imagen de la organización, o null para volver al banner por defecto
-const updateOrgImg = async (id, img) => {
-  const token = getAuthToken()
-  if (!token) {
-    throw new Error('Sesión no válida o expirada.')
-  }
-  const response = await fetch(`${apiBase}/api/org/${id}/img`, {
+const updateOrgImg = (id, img) =>
+  apiFetch(`/api/org/${id}/img`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ img }),
+    body: { img },
+    mensajeError: 'No se pudo actualizar la imagen de la organización.',
   })
-  const data = await response.json()
-  if (!response.ok) {
-    throw new Error(data.message || 'No se pudo actualizar la imagen de la organización.')
-  }
-  return data
-}
+
+const addUsersToOrgBatch = (id_organizacion, usuarios) =>
+  apiFetch('/api/org/users/batch', {
+    method: 'POST',
+    body: { id_organizacion, usuarios },
+    mensajeError: 'No se pudieron agregar los usuarios.',
+  })
 
 const orgServices = {
   getInitialOrgId,
@@ -126,6 +83,7 @@ const orgServices = {
   getUserBatchBasicInfo,
   updateInitialOrgId,
   updateOrgImg,
+  addUsersToOrgBatch,
 }
 
 export {
@@ -135,5 +93,6 @@ export {
   getUserBatchBasicInfo,
   updateInitialOrgId,
   updateOrgImg,
+  addUsersToOrgBatch,
 }
 export default orgServices

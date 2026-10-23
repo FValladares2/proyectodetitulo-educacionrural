@@ -11,7 +11,8 @@
 [data-coreui-theme="light"],
 .light {
   // Color palette (OKLCH with hex/rgb fallbacks)
-  --background: oklch(0.9846 0.0017 247.8389);
+  // fondo algo más gris que las tarjetas (#fff) para que se distingan sin depender de bordes
+  --background: oklch(0.965 0.004 247.8389);
   --foreground: oklch(0.2809 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.2809 0 0);
@@ -27,7 +28,9 @@
   --accent-foreground: oklch(0.3808 0.1001 259.7551);
   --destructive: oklch(0.6509 0.2199 25.0358);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.9261 0.0054 117.9287);
+  // bordes gris azulado como el resto de los neutros; --border-strong delimita controles
+  --border: oklch(0.885 0.008 250);
+  --border-strong: oklch(0.82 0.01 250);
   --input: oklch(0.9659 0.0025 228.7842);
   --ring: oklch(0.7404 0.1635 123.4385);
 
@@ -45,7 +48,7 @@
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.9204 0.0203 238.6791);
   --sidebar-accent-foreground: oklch(0.3808 0.1001 259.7551);
-  --sidebar-border: oklch(0.9106 0.006 239.8262);
+  --sidebar-border: oklch(0.885 0.008 250);
   --sidebar-ring: oklch(0.7404 0.1635 123.4385);
 
   // Typography & Metrics
@@ -71,7 +74,7 @@
   --cui-font-monospace: var(--font-mono);
 
   --cui-body-bg: var(--background);
-  --cui-body-bg-rgb: 249, 250, 251;
+  --cui-body-bg-rgb: 241, 244, 246;
   --cui-body-color: var(--foreground);
   --cui-body-color-rgb: 41, 41, 41;
 
@@ -84,11 +87,11 @@
   --cui-secondary-color-rgb: 93, 100, 108;
 
   --cui-tertiary-bg: var(--background);
-  --cui-tertiary-bg-rgb: 249, 250, 251;
+  --cui-tertiary-bg-rgb: 241, 244, 246;
   --cui-tertiary-color: var(--muted-foreground);
 
   --cui-border-color: var(--border);
-  --cui-border-color-translucent: rgba(41, 41, 41, 0.08);
+  --cui-border-color-translucent: rgba(41, 41, 41, 0.14);
 
   --cui-primary: var(--primary);
   --cui-primary-rgb: 151, 187, 50;
@@ -167,6 +170,7 @@
   --destructive: oklch(0.6509 0.2199 25.0358);
   --destructive-foreground: oklch(1 0 0);
   --border: oklch(0.3408 0.0192 251.4559);
+  --border-strong: oklch(0.42 0.02 251);
   --input: oklch(0.3408 0.0192 251.4559);
   --ring: oklch(0.7404 0.1635 123.4385);
 
@@ -409,7 +413,7 @@ body {
 .form-control,
 .form-select {
   background-color: var(--input);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   color: var(--foreground);
   border-radius: calc(var(--radius) - 2px);
   padding: 0.5rem 0.75rem;
@@ -431,7 +435,7 @@ body {
 
 .input-group-text {
   background-color: var(--secondary);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   color: var(--muted-foreground);
   border-radius: calc(var(--radius) - 2px);
 }
@@ -804,47 +808,6 @@ body {
   u {
     text-decoration: underline;
   }
-
-  // enlaces de descarga a recursos: [texto](recurso:<id>)
-  .recurso-enlace {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3em;
-    padding: 0;
-    border: 0;
-    background: none;
-    font: inherit;
-    color: var(--cui-link-color);
-    text-decoration: underline;
-    vertical-align: baseline;
-    cursor: pointer;
-
-    &:hover {
-      color: var(--cui-link-hover-color);
-    }
-
-    &:disabled {
-      cursor: progress;
-      opacity: 0.75;
-    }
-
-    svg,
-    .spinner-border {
-      flex-shrink: 0;
-      width: 1em;
-      height: 1em;
-    }
-  }
-
-  .recurso-enlace-no-disponible {
-    color: var(--cui-secondary-color);
-    text-decoration: line-through;
-    cursor: default;
-
-    &:hover {
-      color: var(--cui-secondary-color);
-    }
-  }
 }
 
 // Tooltips, popovers, and dialogs for MDXEditor should always render in front of headers
@@ -879,7 +842,8 @@ body {
     --baseBgSubtle: var(--cui-secondary-bg);
     --baseBg: var(--cui-card-bg);
     --baseBgHover: var(--cui-secondary-bg);
-    --baseBgActive: var(--cui-secondary-bg);
+    // hover y estado activo de los botones; debe contrastar con el fondo de la barra
+    --baseBgActive: var(--border);
     --baseLine: var(--cui-border-color);
     --baseBorder: var(--cui-border-color);
     --baseBorderHover: var(--cui-emphasis-color);
@@ -888,17 +852,23 @@ body {
     --font-body: var(--cui-body-font-family);
 
     color: var(--cui-body-color);
+    // marco visible: barra gris arriba y hoja de escritura con el color de tarjeta
+    border: 1px solid var(--border-strong);
+    border-radius: calc(var(--radius) - 2px);
 
     .mdxeditor-toolbar {
       position: sticky;
       top: calc(var(--app-breadcrumb-offset) + var(--asignatura-header-height, 53px));
       z-index: 1010;
-      background-color: var(--cui-card-bg);
+      background-color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      border-radius: calc(var(--radius) - 3px) calc(var(--radius) - 3px) 0 0;
     }
 
     .mdxeditor-root-contenteditable {
-      background-color: var(--cui-body-bg);
+      background-color: var(--cui-card-bg);
       color: var(--cui-body-color);
+      border-radius: 0 0 calc(var(--radius) - 3px) calc(var(--radius) - 3px);
     }
   }
 }
@@ -1038,5 +1008,201 @@ body {
     .files-container .folders-preview {
       width: 100% !important;
     }
+  }
+}
+
+// ------------------------------------------------------------------------------
+// Avisos globales de conexión y actualización (EstadoConexion)
+// ------------------------------------------------------------------------------
+
+.estado-conexion {
+  position: fixed;
+  bottom: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1090;
+  width: min(32rem, calc(100% - 2rem));
+}
+
+// ------------------------------------------------------------------------------
+// Enlaces especiales del markup de asignaturas (también usados fuera de él)
+// ------------------------------------------------------------------------------
+
+// enlaces de descarga a recursos: [texto](recurso:<id>)
+.recurso-enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--cui-link-color);
+  text-decoration: underline;
+  vertical-align: baseline;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--cui-link-hover-color);
+  }
+
+  &:disabled {
+    cursor: progress;
+    opacity: 0.75;
+  }
+
+  svg,
+  .spinner-border {
+    flex-shrink: 0;
+    width: 1em;
+    height: 1em;
+  }
+}
+
+.recurso-enlace-no-disponible {
+  color: var(--cui-secondary-color);
+  text-decoration: line-through;
+  cursor: default;
+
+  &:hover {
+    color: var(--cui-secondary-color);
+  }
+}
+
+// enlaces a tareas: [título](tarea:<id>), con aspecto de "chip" para distinguirlos
+.tarea-enlace {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4em;
+  max-width: 100%;
+  padding: 0.25em 0.6em;
+  margin: 0.1em 0;
+  border: 1px solid var(--border-strong);
+  border-radius: calc(var(--radius) - 4px);
+  background-color: var(--muted);
+  color: var(--cui-body-color);
+  font: inherit;
+  text-align: start;
+  vertical-align: middle;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--cui-primary);
+    // mezcla con el color primario: correcta en tema claro y oscuro
+    background-color: color-mix(in srgb, var(--cui-primary) 14%, transparent);
+  }
+
+  > svg {
+    flex-shrink: 0;
+    color: var(--cui-primary);
+  }
+
+  .tarea-enlace-titulo {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .tarea-enlace-insignia {
+    font-weight: 400;
+  }
+}
+
+.tarea-enlace-no-disponible {
+  cursor: default;
+  color: var(--cui-secondary-color);
+  text-decoration: line-through;
+
+  &:hover {
+    border-color: var(--border-strong);
+    background-color: var(--muted);
+  }
+
+  > svg {
+    color: inherit;
+  }
+}
+
+// tareas en el menú lateral de la asignatura
+.asignatura-tarea-link {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  border-radius: calc(var(--radius) - 4px);
+
+  &:hover {
+    background-color: var(--muted) !important;
+  }
+}
+
+// ------------------------------------------------------------------------------
+// Campana de notificaciones (NotificacionesHeader)
+// ------------------------------------------------------------------------------
+
+.notificaciones-contador {
+  font-size: 0.65rem;
+  padding: 0.25em 0.45em;
+}
+
+.notificaciones-menu {
+  width: min(24rem, calc(100vw - 2rem));
+  overflow: hidden;
+}
+
+.notificaciones-lista {
+  max-height: min(28rem, 60vh);
+  overflow-y: auto;
+}
+
+.notificacion-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  white-space: normal;
+  border-bottom: 1px solid var(--border);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  &.no-leida {
+    // mezcla con el color primario: correcta en tema claro y oscuro
+    background-color: color-mix(in srgb, var(--cui-primary) 14%, transparent);
+  }
+
+  .notificacion-icono {
+    flex-shrink: 0;
+    margin-top: 0.2rem;
+    color: var(--cui-primary);
+  }
+
+  .notificacion-cuerpo {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-width: 0;
+  }
+
+  .notificacion-texto {
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+  }
+
+  .notificacion-fecha {
+    font-size: 0.8rem;
+    color: var(--cui-secondary-color);
+  }
+
+  .notificacion-punto {
+    flex-shrink: 0;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-top: 0.45rem;
+    border-radius: 50%;
+    background-color: var(--cui-primary);
   }
 }

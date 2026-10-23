@@ -125,14 +125,35 @@ const findRecursosByOrganizacion = async (id_organizacion) => {
 }
 
 /**
- * Returns the container a recurso belongs to: { id_asignatura } or { id_organizacion }.
- * @param {object} recurso
- * @returns {{ id_asignatura: string } | { id_organizacion: string }}
+ * Finds the files a user submitted to a tarea (metadata only).
+ * @param {string} id_tarea
+ * @param {ObjectId} usuario
+ * @returns {Promise<Array>}
  */
-const getContenedor = (recurso) =>
-  recurso.id_organizacion
-    ? { id_organizacion: String(recurso.id_organizacion) }
-    : { id_asignatura: String(recurso.id_asignatura) }
+const findRecursosByTarea = async (id_tarea, usuario) => {
+  if (isMongoConnected() && collections.recursos) {
+    return collections.recursos
+        .find({ id_tarea: String(id_tarea), usuario })
+        .project({ recurso: 0 })
+        .sort({ nombre: 1 })
+        .toArray()
+  }
+  return []
+}
+
+/**
+ * Returns the container a recurso belongs to:
+ * - { id_tarea, usuario } for files submitted to a tarea, private to the student and the docentes
+ * - { id_organizacion } for general organization files such as banners
+ * - { id_asignatura } otherwise
+ * @param {object} recurso
+ * @returns {{ id_tarea: string, usuario: ObjectId } | { id_organizacion: string } | { id_asignatura: string }}
+ */
+const getContenedor = (recurso) => {
+  if (recurso.id_tarea) return { id_tarea: String(recurso.id_tarea), usuario: recurso.usuario }
+  if (recurso.id_organizacion) return { id_organizacion: String(recurso.id_organizacion) }
+  return { id_asignatura: String(recurso.id_asignatura) }
+}
 
 /**
  * Checks if another recurso with the same name already exists in the same container.
@@ -248,6 +269,7 @@ module.exports = {
   findRecursoById,
   findRecursosByAsignatura,
   findRecursosByOrganizacion,
+  findRecursosByTarea,
   getContenedor,
   existeNombreEnContenedor,
   validarImagenBanner,
