@@ -114,7 +114,7 @@ const SidebarAsignatura = ({
         className="asignatura-sidebar d-none d-lg-block"
         aria-label="Navegación de la asignatura"
       >
-        <div className="border rounded p-3 bg-body">{content}</div>
+        <div className="asignatura-sidebar-caja border rounded p-3 bg-body">{content}</div>
       </aside>
       <CSidebar
         className="asignatura-mobile-sidebar d-lg-none"

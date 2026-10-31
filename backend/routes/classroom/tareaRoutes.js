@@ -78,8 +78,8 @@ router.post('/api/tarea', authenticate, async (req, res) => {
             id_asignatura: new ObjectId(String(id_asignatura)),
             ...validacion.datos,
             creada_por: req.user._id,
-            createdAt: ahora,
-            updatedAt: ahora,
+            creado_en: ahora,
+            actualizado_en: ahora,
         }
         const result = await tareaServices.crearTarea(tarea)
         if (!result) {
@@ -161,7 +161,7 @@ router.put('/api/tarea/:id', authenticate, async (req, res) => {
             return res.status(400).json({ message: validacion.message })
         }
 
-        const cambios = { ...validacion.datos, updatedAt: new Date() }
+        const cambios = { ...validacion.datos, actualizado_en: new Date() }
         // con un nuevo límite, el recordatorio de cierre vuelve a enviarse cuando corresponda
         if (cambios.limite && cambios.limite.getTime() !== new Date(tarea.limite).getTime()) {
             cambios.recordatorio_enviado = false

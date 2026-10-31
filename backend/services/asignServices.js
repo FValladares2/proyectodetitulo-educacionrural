@@ -61,7 +61,7 @@ const getFilteredClasses = async ({
 
     // 1. Filtrar por organización
     if (id_organizacion) {
-        query.id_organizacion = id_organizacion // stored as plain string in DB, not ObjectId
+        query.id_organizacion = ObjectId.isValid(id_organizacion) ? new ObjectId(String(id_organizacion)) : id_organizacion
     }
 
     // 2. Filtrar por pertenencia del usuario
@@ -79,29 +79,26 @@ const getFilteredClasses = async ({
         query.activo = isActivo ? { $ne: false } : false
     }
 
-    // 4. Búsqueda por texto (nombre o código)
+    // 4. Búsqueda por nombre
     if (search && search.trim() !== undefined && search.trim() !== '') {
         console.log('search: ', search)
         const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        query.$or = [
-            { nombre: { $regex: escaped, $options: 'i' } },
-            { codigo: { $regex: escaped, $options: 'i' } }
-        ]
+        query.nombre = { $regex: escaped, $options: 'i' }
     }
 
     // 5. Configurar ordenamiento
     const sortDirection = order === 'desc' ? -1 : 1
     const sortOptions = {}
 
-    if (sortBy === 'createdAt') {
-        sortOptions.createdAt = sortDirection
+    if (sortBy === 'creado_en') {
+        sortOptions.creado_en = sortDirection
     } else {
         sortOptions.nombre = sortDirection // Por defecto nombre
     }
 
     const skip = (Math.max(1, page) - 1) * limit
 
-    const proyeccion = { _id: 1, nombre: 1, img: 1, id_organizacion: 1, docentes: 1, usuarios: 1, activo: 1, createdAt: 1 }
+    const proyeccion = { _id: 1, nombre: 1, img: 1, id_organizacion: 1, docentes: 1, usuarios: 1, activo: 1, creado_en: 1 }
 
     // 6. Ejecución con collation en español
     const cursor = sortBy === 'ultimoAcceso' && userId

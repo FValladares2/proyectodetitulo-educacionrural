@@ -21,21 +21,13 @@ const findUserById = async (id) => {
   return null
 }
 
-const findUserByIdAndUsername = async (id, nombre) => {
-  if (isMongoConnected() && collections.usuarios) {
-    return collections.usuarios.findOne({ _id: new ObjectId(id), nombre })
-  }
-
-  return null
-}
-
 const findUserByCredentials = async (value, password) => {
   const user = await findUserByUsernameOrEmail(value)
-  if (!user || !user.passwordHash) {
+  if (!user || !user.hash_contrasena) {
     return null
   }
 
-  const validPassword = await comparePassword(password, user.passwordHash)
+  const validPassword = await comparePassword(password, user.hash_contrasena)
   return validPassword ? user : null
 }
 
@@ -47,18 +39,10 @@ const insertUser = async (user) => {
   return null
 }
 
-const insertUserInBatch = async (users) => {
-  if (isMongoConnected() && collections.usuarios) {
-    return collections.usuarios.insertMany({ users }, { ordered: false })
-  }
-
-  return null
-}
-
 const setUserMainOrg = async (userId, orgId) => {
   if (isMongoConnected() && collections.usuarios) {
     if (!ObjectId.isValid(userId) || !ObjectId.isValid(orgId)) return null
-    return collections.usuarios.updateOne({ _id: new ObjectId(userId) }, { $set: { org_principal: orgId } })
+    return collections.usuarios.updateOne({ _id: new ObjectId(userId) }, { $set: { org_principal: new ObjectId(String(orgId)) } })
   }
 
   return null
@@ -77,10 +61,8 @@ module.exports = {
   comparePassword,
   findUserByUsernameOrEmail,
   findUserById,
-  findUserByIdAndUsername,
   findUserByCredentials,
   insertUser,
-  insertUserInBatch,
   setUserMainOrg,
   getUserBatchBasicInfo,
 }

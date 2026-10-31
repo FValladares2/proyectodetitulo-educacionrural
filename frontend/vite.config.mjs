@@ -22,6 +22,9 @@ const pwa = VitePWA({
     globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
     maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
     cleanupOutdatedCaches: true,
+    // Workbox dentro de sw.js: si se carga aparte, los manejadores de fetch se registran
+    // después de la evaluación inicial y Firefox ignora el service worker para las solicitudes
+    inlineWorkboxRuntime: true,
     // con HashRouter toda navegación carga index.html
     navigateFallback: 'index.html',
     navigateFallbackDenylist: [/^\/api\//],
@@ -32,9 +35,17 @@ const pwa = VitePWA({
           /^\/api\/recurso\/[0-9a-f]{24}\/descarga$/i.test(url.pathname),
         handler: 'CacheFirst',
         options: {
-          cacheName: 'educacionrural-api-recursos',
+          cacheName: 'educacionrural-api-recursos-v2',
           expiration: { maxEntries: 100, maxAgeSeconds: 30 * DIA, purgeOnQuotaError: true },
           cacheableResponse: { statuses: [200] },
+          // solo descargas reales (el backend las envía como adjunto), nunca una página de
+          // advertencia de un túnel o proxy
+          plugins: [
+            {
+              cacheWillUpdate: async ({ response }) =>
+                response.headers.get('content-disposition') ? response : null,
+            },
+          ],
         },
       },
       {
@@ -44,11 +55,18 @@ const pwa = VitePWA({
           !url.pathname.startsWith('/api/auth/'),
         handler: 'NetworkFirst',
         options: {
-          cacheName: 'educacionrural-api-datos',
+          cacheName: 'educacionrural-api-datos-v2',
           // en conexiones lentas, pasado este tiempo se usa la copia guardada si existe
           networkTimeoutSeconds: 8,
           expiration: { maxEntries: 300, maxAgeSeconds: 30 * DIA, purgeOnQuotaError: true },
           cacheableResponse: { statuses: [200] },
+          // solo JSON de la API, nunca una página HTML de un túnel o proxy
+          plugins: [
+            {
+              cacheWillUpdate: async ({ response }) =>
+                (response.headers.get('content-type') || '').includes('json') ? response : null,
+            },
+          ],
         },
       },
     ],

@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
+  CAlert,
   CButton,
   CCard,
   CCardBody,
@@ -29,10 +30,12 @@ import { asignarCacheOffline } from 'src/services/offlineCache'
 const Login = () => {
   const [showPassword, setShowPassword] = React.useState(false)
   const [visibleModal, setVisibleModal] = React.useState(false)
+  const [errorLogin, setErrorLogin] = React.useState(null)
   const [staySignedIn, setStaySignedIn] = React.useState(false)
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
   const navigate = useNavigate()
+  const sesionExpirada = Boolean(useLocation().state?.sesionExpirada)
 
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -46,6 +49,21 @@ const Login = () => {
       })
       .catch((error) => {
         console.error('Login failed:', error)
+        // la contraseña solo se puede verificar en el servidor: sin conexión no hay forma de
+        // entrar, y no se guarda nada en el equipo que permita hacerlo
+        setErrorLogin(
+          error.sinConexion
+            ? {
+                titulo: 'Sin conexión con el servidor',
+                mensaje: `${error.message} Para iniciar sesión se necesita conexión; si ya tenías la sesión abierta en este equipo, lo que abriste sigue disponible sin conexión.`,
+              }
+            : error.status === 400 || error.status === 401
+              ? {
+                  titulo: 'Error al iniciar sesión',
+                  mensaje: 'Datos de usuario incorrectos. Por favor, intenta de nuevo.',
+                }
+              : { titulo: 'Error al iniciar sesión', mensaje: error.message },
+        )
         setVisibleModal(true)
       })
   }
@@ -81,6 +99,11 @@ const Login = () => {
               <CCard className="p-4">
                 <CCardBody className="d-flex flex-column gap-4">
                   <h2 className="h5 text-center mb-0">Inicia sesión con tus datos</h2>
+                  {sesionExpirada && (
+                    <CAlert color="info" className="mb-0">
+                      Tu sesión expiró. Inicia sesión de nuevo para continuar.
+                    </CAlert>
+                  )}
                   <CForm className="row gy-3">
                     <CCol xs={12}>
                       <CFormLabel htmlFor="email">Correo o Nombre de Usuario</CFormLabel>
@@ -155,9 +178,11 @@ const Login = () => {
           aria-labelledby="ModalErrorLogin"
         >
           <CModalHeader>
-            <CModalTitle id="ModalErrorLogin">Error al iniciar sesión</CModalTitle>
+            <CModalTitle id="ModalErrorLogin">
+              {errorLogin?.titulo || 'Error al iniciar sesión'}
+            </CModalTitle>
           </CModalHeader>
-          <CModalBody>Datos de usuario incorrectos. Por favor, intenta de nuevo.</CModalBody>
+          <CModalBody>{errorLogin?.mensaje}</CModalBody>
           <CModalFooter>
             <CButton color="secondary" onClick={() => setVisibleModal(false)}>
               Volver

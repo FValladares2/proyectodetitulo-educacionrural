@@ -84,7 +84,7 @@ const ExploradorRecursos = ({
         name: nombre,
         isDirectory: true,
         path: `/${nombre}`,
-        updatedAt: asignatura.createdAt,
+        updatedAt: asignatura.creado_en,
         asignaturaId: String(asignatura._id),
       }
     })
@@ -98,7 +98,7 @@ const ExploradorRecursos = ({
           name: recurso.nombre,
           isDirectory: false,
           path: `${carpeta.path}/${recurso.nombre}`,
-          updatedAt: recurso.updatedAt || recurso.createdAt,
+          updatedAt: recurso.actualizado_en || recurso.creado_en,
           size: recurso.tamano,
           asignaturaId: carpeta.asignaturaId,
           recurso,
@@ -268,7 +268,7 @@ const ExploradorRecursos = ({
 }
 
 ExploradorRecursos.propTypes = {
-  /** Asignaturas a mostrar como carpetas: { _id, nombre, docentes, createdAt } */
+  /** Asignaturas a mostrar como carpetas: { _id, nombre, docentes, creado_en } */
   asignaturas: PropTypes.arrayOf(PropTypes.object).isRequired,
   /** Asignatura abierta; al cambiar desde fuera el explorador navega a ella */
   asignaturaId: PropTypes.string,

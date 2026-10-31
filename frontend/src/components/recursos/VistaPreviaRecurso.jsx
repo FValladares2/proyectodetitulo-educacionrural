@@ -3,9 +3,9 @@ import PropTypes from 'prop-types'
 import { CAlert, CButton, CSpinner } from '@coreui/react'
 import { descargarRecurso, fetchRecursoBlob } from 'src/services/recursoServices'
 
-const esImagen = (mimetype = '') => mimetype.startsWith('image/')
-const esPdf = (mimetype = '') => mimetype === 'application/pdf'
-const esTexto = (mimetype = '') => mimetype.startsWith('text/')
+const esImagen = (tipoMime = '') => tipoMime.startsWith('image/')
+const esPdf = (tipoMime = '') => tipoMime === 'application/pdf'
+const esTexto = (tipoMime = '') => tipoMime.startsWith('text/')
 
 /**
  * Vista previa de un recurso dentro del modal del file manager.
@@ -16,7 +16,7 @@ const VistaPreviaRecurso = ({ recurso }) => {
   const [texto, setTexto] = useState(null)
   const [error, setError] = useState('')
   const previsualizable =
-    esImagen(recurso.mimetype) || esPdf(recurso.mimetype) || esTexto(recurso.mimetype)
+    esImagen(recurso.tipo_mime) || esPdf(recurso.tipo_mime) || esTexto(recurso.tipo_mime)
 
   useEffect(() => {
     if (!previsualizable) return
@@ -25,7 +25,7 @@ const VistaPreviaRecurso = ({ recurso }) => {
 
     fetchRecursoBlob(recurso._id, controller.signal)
       .then(async (blob) => {
-        if (esTexto(recurso.mimetype)) {
+        if (esTexto(recurso.tipo_mime)) {
           setTexto(await blob.text())
         } else {
           objectUrl = URL.createObjectURL(blob)
@@ -40,7 +40,7 @@ const VistaPreviaRecurso = ({ recurso }) => {
       controller.abort()
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [recurso._id, recurso.mimetype, previsualizable])
+  }, [recurso._id, recurso.tipo_mime, previsualizable])
 
   const botonDescarga = (
     <CButton
@@ -78,10 +78,10 @@ const VistaPreviaRecurso = ({ recurso }) => {
 
   return (
     <div className="p-3 text-center">
-      {esImagen(recurso.mimetype) && (
+      {esImagen(recurso.tipo_mime) && (
         <img src={url} alt={recurso.nombre} className="img-fluid" style={{ maxHeight: '70vh' }} />
       )}
-      {esPdf(recurso.mimetype) && (
+      {esPdf(recurso.tipo_mime) && (
         <iframe
           src={url}
           title={recurso.nombre}
@@ -102,7 +102,7 @@ VistaPreviaRecurso.propTypes = {
   recurso: PropTypes.shape({
     _id: PropTypes.string.isRequired,
     nombre: PropTypes.string.isRequired,
-    mimetype: PropTypes.string,
+    tipo_mime: PropTypes.string,
   }).isRequired,
 }
 

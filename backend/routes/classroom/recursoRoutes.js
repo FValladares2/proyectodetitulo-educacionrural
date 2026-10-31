@@ -49,7 +49,7 @@ const sinContenido = ({ recurso, ...metadatos }) => metadatos
 // o a una tarea (archivos de la entrega de un estudiante, privados para él y los docentes)
 const puedeVerContenedor = async (contenedor, userId) => {
     if (contenedor.id_tarea) {
-        if (String(contenedor.usuario) === String(userId)) return true
+        if (String(contenedor.id_usuario) === String(userId)) return true
         const tarea = await tareaServices.findTareaById(contenedor.id_tarea)
         return Boolean(tarea && await asignServices.findDocenteInAsign(tarea.id_asignatura, userId))
     }
@@ -98,9 +98,11 @@ router.post('/api/recurso/upload', authenticate, subirArchivo, async (req, res) 
             return res.status(400).json({ message: 'El destino del archivo no es válido.' })
         }
         // en una tarea el archivo pertenece a quien lo sube, que es quien entrega
-        const contenedor = id_tarea
-            ? { id_tarea, usuario: user._id }
-            : id_organizacion ? { id_organizacion } : { id_asignatura }
+        const contenedor = recursoServices.normalizarContenedor(
+            id_tarea
+                ? { id_tarea, id_usuario: user._id }
+                : id_organizacion ? { id_organizacion } : { id_asignatura }
+        )
 
         const motivo = await motivoSinEdicion(contenedor, user._id, 'No tienes permisos para subir archivos aquí.')
         if (motivo) {
@@ -121,14 +123,13 @@ router.post('/api/recurso/upload', authenticate, subirArchivo, async (req, res) 
         const archiv = {
             ...contenedor,
             nombre,
-            ruta: '/',
             recurso: recursoCifrado,
             codificacion: 'base64',
-            mimetype: req.file.mimetype || 'application/octet-stream',
+            tipo_mime: req.file.mimetype || 'application/octet-stream',
             tamano: req.file.size,
-            usuario: user._id,
-            createdAt: ahora,
-            updatedAt: ahora,
+            id_usuario: user._id,
+            creado_en: ahora,
+            actualizado_en: ahora,
         }
 
         const result = await recursoServices.createRecurso(archiv)
@@ -164,15 +165,15 @@ router.get('/api/recurso/:id/descarga', authenticate, async (req, res) => {
             return res.status(404).json({ message: 'El recurso no tiene contenido.' })
         }
 
-        const contenido = await recursoServices.descifrarRecurso(archiv.recurso, archiv.usuario)
+        const contenido = await recursoServices.descifrarRecurso(archiv.recurso, archiv.id_usuario)
         // recursos antiguos (de la ruta /api/recurso/add, ya eliminada) guardan texto u objetos en vez de base64
         const buffer = archiv.codificacion === 'base64'
             ? Buffer.from(contenido, 'base64')
             : Buffer.from(typeof contenido === 'string' ? contenido : JSON.stringify(contenido), 'utf8')
 
         res.attachment(archiv.nombre)
-        if (archiv.mimetype) {
-            res.type(archiv.mimetype)
+        if (archiv.tipo_mime) {
+            res.type(archiv.tipo_mime)
         }
         res.status(200).send(buffer)
     } catch (error) {
@@ -204,7 +205,7 @@ router.patch('/api/recurso/:id', authenticate, async (req, res) => {
             return res.status(409).json({ message: 'Ya existe un archivo con ese nombre.' })
         }
 
-        const cambios = { nombre, updatedAt: new Date() }
+        const cambios = { nombre, actualizado_en: new Date() }
         await recursoServices.updateRecurso(id, cambios)
         registrarActividadRecurso(contenedor, {
             id_usuario: user._id,
@@ -263,7 +264,7 @@ router.get('/api/recurso/:id', authenticate, async (req, res) => {
 
         let recursoDescifrado = null
         if (archiv.recurso) {
-            recursoDescifrado = await recursoServices.descifrarRecurso(archiv.recurso, archiv.usuario)
+            recursoDescifrado = await recursoServices.descifrarRecurso(archiv.recurso, archiv.id_usuario)
         }
 
         res.status(200).json({

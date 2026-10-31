@@ -44,7 +44,8 @@ jest.mock('../services/recursoServices', () => {
     existeNombreEnContenedor: jest.fn(async (contenedor, nombre, excluirId) =>
       [...mockDb.values()].some(
         (d) =>
-          Object.entries(contenedor).every(([campo, valor]) => d[campo] === valor) &&
+          // los contenedores guardan ObjectId: se comparan por su valor
+          Object.entries(contenedor).every(([campo, valor]) => String(d[campo]) === String(valor)) &&
           d.nombre === nombre &&
           String(d._id) !== String(excluirId),
       ),
@@ -52,7 +53,7 @@ jest.mock('../services/recursoServices', () => {
     findRecursosByOrganizacion: jest.fn(async (id_organizacion) =>
       // igual que la proyección real, sin el contenido cifrado
       [...mockDb.values()]
-        .filter((d) => d.id_organizacion === id_organizacion)
+        .filter((d) => String(d.id_organizacion) === String(id_organizacion))
         .map(({ recurso, ...metadatos }) => metadatos),
     ),
     updateRecurso: jest.fn(async (id, campos) => {
@@ -180,6 +181,8 @@ describe('Rutas de recursos (archivos)', () => {
 
       expect(res.status).toBe(201)
       expect(res.body.id_organizacion).toBe(ORGANIZACION_ID)
+      // se guarda como ObjectId, no como texto
+      expect(mockDb.get(res.body._id).id_organizacion).toBeInstanceOf(mockObjectId)
       expect(res.body).not.toHaveProperty('id_asignatura')
     })
 
@@ -256,7 +259,8 @@ describe('registro de actividad de recursos', () => {
       ACCIONES.RECURSO_RENOMBRADO,
       ACCIONES.RECURSO_ELIMINADO,
     ])
-    expect(llamadas[0]).toMatchObject({ contenedor: { id_asignatura: ASIGNATURA_ID }, detalle: { nombre: 'guia.pdf' } })
+    expect(String(llamadas[0].contenedor.id_asignatura)).toBe(ASIGNATURA_ID)
+    expect(llamadas[0].detalle).toEqual({ nombre: 'guia.pdf' })
     expect(llamadas[1].detalle).toEqual({ anterior: 'guia.pdf', nombre: 'guia-v2.pdf' })
     // el nombre eliminado queda registrado aunque el recurso ya no exista
     expect(llamadas[2].detalle).toEqual({ nombre: 'guia-v2.pdf' })
@@ -265,7 +269,9 @@ describe('registro de actividad de recursos', () => {
 
   test('los recursos de organización registran la actividad en la organización', async () => {
     await subirAOrganizacion('logo.png')
-    expect(mockRegistrarActividad.mock.calls[0][0].contenedor).toEqual({ id_organizacion: ORGANIZACION_ID })
+    const { contenedor } = mockRegistrarActividad.mock.calls[0][0]
+    expect(Object.keys(contenedor)).toEqual(['id_organizacion'])
+    expect(String(contenedor.id_organizacion)).toBe(ORGANIZACION_ID)
   })
 
   test('las operaciones rechazadas no registran actividad', async () => {

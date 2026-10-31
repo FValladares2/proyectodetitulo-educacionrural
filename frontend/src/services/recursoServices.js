@@ -1,4 +1,4 @@
-import { apiBase, apiFetch } from './apiClient'
+import { apiBase, apiFetch, encabezadosDeTunel } from './apiClient'
 import { getAuthToken } from './authServices'
 
 const MAX_TAMANO_ARCHIVO = 10 * 1024 * 1024
@@ -53,7 +53,7 @@ const eliminarRecurso = (id) =>
 const getUploadConfig = () => ({
   url: `${apiBase}/api/recurso/upload`,
   method: 'POST',
-  headers: { Authorization: `Bearer ${getAuthToken()}` },
+  headers: { ...encabezadosDeTunel(), Authorization: `Bearer ${getAuthToken()}` },
 })
 
 const recursoServices = {

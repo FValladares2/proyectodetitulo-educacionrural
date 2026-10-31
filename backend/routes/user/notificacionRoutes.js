@@ -4,7 +4,7 @@ const notificacionServices = require('../../services/notificacionServices')
 const { escaparHtml, urlApp } = require('../../services/correoPlantillas')
 const { authenticate } = require('../../utils/auth')
 
-// ?limit=20&antes=<createdAt de la última recibida> para paginar hacia atrás
+// ?limit=20&antes=<creado_en de la última recibida> para paginar hacia atrás
 router.get('/api/notificaciones', authenticate, async (req, res) => {
     try {
         const limit = Number.parseInt(req.query.limit, 10)

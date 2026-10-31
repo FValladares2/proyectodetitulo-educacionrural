@@ -4,6 +4,19 @@
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || ''
 
+// se emite en window cuando el servidor rechaza la sesión (token vencido o inválido);
+// DefaultLayout lo escucha para cerrar la sesión y volver al inicio de sesión
+const EVENTO_SESION_EXPIRADA = 'sesion-expirada'
+
+// los túneles gratuitos de ngrok responden con una página de advertencia (ERR_NGROK_6024) en vez
+// de reenviar la solicitud, salvo que esta incluya este encabezado
+const esTunelNgrok =
+  typeof location !== 'undefined' && /\.ngrok(-free)?\.(app|dev|io)$/.test(location.hostname)
+const encabezadosDeTunel = () => (esTunelNgrok ? { 'ngrok-skip-browser-warning': '1' } : {})
+
+const MENSAJE_SERVIDOR_NO_DISPONIBLE =
+  'No se pudo conectar con el servidor. Puede estar fuera de línea; inténtalo más tarde.'
+
 const MENSAJE_SIN_CONEXION =
   'Sin conexión a internet. Los cambios no se pueden guardar hasta que vuelva la conexión.'
 
@@ -61,7 +74,7 @@ const apiFetch = async (
     mensajeError = 'Ocurrió un error al comunicarse con el servidor.',
   } = {},
 ) => {
-  const headers = {}
+  const headers = encabezadosDeTunel()
   if (auth) {
     const token = getAuthToken()
     if (!token) {
@@ -83,19 +96,53 @@ const apiFetch = async (
     if (esAbortError(error)) throw error
     // fetch solo falla sin respuesta: sin red, servidor caído o CORS
     const sinConexion = typeof navigator !== 'undefined' && navigator.onLine === false
-    throw new ApiError(
-      sinConexion ? MENSAJE_SIN_CONEXION : 'No se pudo conectar con el servidor.',
-      { sinConexion: true },
-    )
+    throw new ApiError(sinConexion ? MENSAJE_SIN_CONEXION : MENSAJE_SERVIDOR_NO_DISPONIBLE, {
+      sinConexion: true,
+    })
   }
 
   if (!response.ok) {
-    const data = await leerJson(response)
+    if (auth && response.status === 401) {
+      window.dispatchEvent(new Event(EVENTO_SESION_EXPIRADA))
+    }
+    const esJson = (response.headers.get('content-type') || '').includes('json')
+    const data = esJson ? await leerJson(response) : null
+    // sin JSON, la respuesta no viene del backend sino de lo que está delante (túnel caído,
+    // ERR_NGROK_3200, o un 502 de nginx con el backend detenido): se trata como sin conexión
+    if (!esJson) {
+      throw new ApiError(MENSAJE_SERVIDOR_NO_DISPONIBLE, {
+        status: response.status,
+        sinConexion: true,
+      })
+    }
     throw new ApiError(data?.message || mensajeError, { status: response.status, data })
   }
 
-  if (respuesta === 'blob') return response.blob()
+  // una página HTML en vez de los datos (por ejemplo, la advertencia de un túnel o un proxy) es
+  // un error, no una respuesta vacía; las descargas reales llegan como adjunto
+  const tipo = response.headers.get('content-type') || ''
+  if (respuesta === 'blob') {
+    if (tipo.includes('text/html') && !response.headers.get('content-disposition')) {
+      throw new ApiError('El servidor respondió con un contenido inesperado. Recarga la página.', {
+        status: response.status,
+      })
+    }
+    return response.blob()
+  }
+  if (tipo && !tipo.includes('json')) {
+    throw new ApiError('El servidor respondió con un contenido inesperado. Recarga la página.', {
+      status: response.status,
+    })
+  }
   return leerJson(response)
 }
 
-export { apiBase, apiFetch, ApiError, esAbortError, MENSAJE_SIN_CONEXION }
+export {
+  apiBase,
+  apiFetch,
+  encabezadosDeTunel,
+  ApiError,
+  esAbortError,
+  EVENTO_SESION_EXPIRADA,
+  MENSAJE_SIN_CONEXION,
+}

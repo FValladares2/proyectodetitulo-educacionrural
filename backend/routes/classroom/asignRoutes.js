@@ -8,11 +8,15 @@ const accesoServices = require('../../services/accesoServices')
 const { ACCIONES, registrarActividad } = require('../../services/actividadServices')
 const { notificar } = require('../../services/notificacionServices')
 const { authenticate, getUserFromToken } = require('../../utils/auth')
+const { ObjectId } = require('../../config/mongo')
 
 router.post('/api/asign/create', authenticate, async (req, res) => {
     // solo puede crear una clase un usuario que sea administrador de la organización
     try {
         const user = await getUserFromToken(req.headers.authorization.split(' ')[1])
+        if (!ObjectId.isValid(req.body.id_organizacion)) {
+            return res.status(400).json({ message: 'La organización no es válida.' })
+        }
         const isU = await orgServices.findUserInOrg(req.body.id_organizacion, user._id)
 
         if (!isU) {
@@ -32,11 +36,11 @@ router.post('/api/asign/create', authenticate, async (req, res) => {
 
         const classRoom = await classServices.createClass({
             nombre,
-            id_organizacion,
+            id_organizacion: new ObjectId(String(id_organizacion)),
             docentes: [user._id],
             usuarios: [user._id],
             activo: true,
-            createdAt: new Date(),
+            creado_en: new Date(),
         })
 
         registrarActividad({

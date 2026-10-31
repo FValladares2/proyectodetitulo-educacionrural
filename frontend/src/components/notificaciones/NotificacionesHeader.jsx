@@ -145,7 +145,7 @@ const NotificacionesHeader = () => {
                   <span className="notificacion-cuerpo">
                     <span className="notificacion-texto">{texto}</span>
                     <span className="notificacion-fecha">
-                      {tiempoRelativo(notificacion.createdAt)}
+                      {tiempoRelativo(notificacion.creado_en)}
                     </span>
                   </span>
                   {!notificacion.leida && (

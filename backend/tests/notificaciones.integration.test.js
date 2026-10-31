@@ -102,7 +102,7 @@ describeConMongo('notificaciones y correos (MongoDB real)', () => {
       (
         await collections.organizaciones.insertOne({
           nombre: 'Escuela Rural Los Aromos',
-          admin: [mockUsuarios.docente],
+          administradores: [mockUsuarios.docente],
           profesores: [mockUsuarios.docente],
           usuarios: [mockUsuarios.docente, mockUsuarios.ana],
         })
@@ -267,7 +267,7 @@ describeConMongo('notificaciones y correos (MongoDB real)', () => {
     await esperarSegundoPlano()
 
     const carla = await mongo.collections.usuarios.findOne({ correo: 'nueva@prueba.cl' })
-    expect(carla.passwordHash).toBeNull()
+    expect(carla.hash_contrasena).toBeNull()
     expect(carla.invitacion.token_hash).toHaveLength(64)
     // beto se agregó; ana ya era integrante, así que no recibe aviso
     expect(await notificacionesDe('beto', 'agregado_organizacion')).toHaveLength(1)

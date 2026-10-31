@@ -118,7 +118,7 @@ const TareaFormModal = ({ visible, onClose, idAsignatura, tarea = null, onGuarda
               rows={5}
               value={form.descripcion}
               onChange={cambiar('descripcion')}
-              placeholder="Qué deben entregar los estudiantes. Admite formato Markdown."
+              placeholder="Detalla lo que deben entregar los estudiantes."
             />
           </div>
           <CRow className="g-3">

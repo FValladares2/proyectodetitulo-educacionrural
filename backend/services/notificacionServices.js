@@ -8,7 +8,7 @@ const { renderizarCorreo, enlaceApp, urlApp } = require('./correoPlantillas')
  * según el tipo y las preferencias del usuario, también se envían por correo.
  *
  * Solo las crea el backend, desde las rutas, después de que la acción se completa.
- * { id_usuario, tipo, id_asignatura?, id_organizacion?, id_tarea?, datos, leida, createdAt }
+ * { id_usuario, tipo, id_asignatura?, id_organizacion?, id_tarea?, datos, leida, creado_en }
  */
 
 /**
@@ -147,7 +147,7 @@ const notificar = async ({ destinatarios, tipo, datos = {}, id_asignatura, id_or
             if (config.agrupar) {
                 const { value: agrupada } = await collections.notificaciones.findOneAndUpdate(
                     { id_usuario, tipo, ...referencias, leida: false },
-                    { $set: { createdAt: ahora, ...Object.fromEntries(Object.entries(datos).map(([k, v]) => [`datos.${k}`, v])) }, $inc: { 'datos.cantidad': 1 } },
+                    { $set: { creado_en: ahora, ...Object.fromEntries(Object.entries(datos).map(([k, v]) => [`datos.${k}`, v])) }, $inc: { 'datos.cantidad': 1 } },
                     // includeResultMetadata da el mismo formato ({ value }) en las versiones 5 y 6 del driver
                     { includeResultMetadata: true }
                 )
@@ -167,7 +167,7 @@ const notificar = async ({ destinatarios, tipo, datos = {}, id_asignatura, id_or
                 ...referencias,
                 datos: config.agrupar ? { ...datos, cantidad: 1 } : datos,
                 leida: false,
-                createdAt: ahora,
+                creado_en: ahora,
             }))
         )
         resumen.creadas = nuevos.length
@@ -200,10 +200,10 @@ const notificar = async ({ destinatarios, tipo, datos = {}, id_asignatura, id_or
 const listarNotificaciones = async (id_usuario, { limit = 20, antes } = {}) => {
     if (!isMongoConnected() || !collections.notificaciones) return []
     const filtro = { id_usuario: aObjectId(id_usuario) }
-    if (antes) filtro.createdAt = { $lt: antes }
+    if (antes) filtro.creado_en = { $lt: antes }
     return collections.notificaciones
         .find(filtro)
-        .sort({ createdAt: -1 })
+        .sort({ creado_en: -1 })
         .limit(Math.min(Math.max(1, limit), LIMITE_MAXIMO))
         .toArray()
 }

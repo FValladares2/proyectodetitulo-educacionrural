@@ -5,7 +5,7 @@ import ExploradorRecursos from './ExploradorRecursos'
 
 const EXTENSIONES_IMAGEN = '.png,.jpg,.jpeg,.gif,.webp,.svg'
 
-const esImagen = (recurso) => (recurso.mimetype || '').startsWith('image/')
+const esImagen = (recurso) => (recurso.tipo_mime || '').startsWith('image/')
 
 const MODOS = {
   imagen: {
@@ -18,7 +18,9 @@ const MODOS = {
 
 // el explorador decide quién puede subir según "docentes"; en organizaciones son los admin
 const aCarpeta = (contenedor, ambito) =>
-  ambito === 'organizacion' ? { ...contenedor, docentes: contenedor.admin || [] } : contenedor
+  ambito === 'organizacion'
+    ? { ...contenedor, docentes: contenedor.administradores || [] }
+    : contenedor
 
 /**
  * Modal para elegir un recurso de una asignatura u organización. En modo "imagen" solo se

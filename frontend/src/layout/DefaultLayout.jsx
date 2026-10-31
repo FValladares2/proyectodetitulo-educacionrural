@@ -19,9 +19,13 @@
  * <Route path="*" element={<DefaultLayout />} />
  */
 
-import React from 'react'
+import React, { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AppContent, AppSidebar, AppFooter, AppHeader } from '../components/index'
 import EstadoConexion from '../components/EstadoConexion'
+import { EVENTO_SESION_EXPIRADA } from '../services/apiClient'
+import { clearAuthSession } from '../services/authServices'
+import { limpiarCachesAntiguos } from '../services/offlineCache'
 
 /**
  * DefaultLayout functional component
@@ -37,6 +41,22 @@ import EstadoConexion from '../components/EstadoConexion'
  * @returns {React.ReactElement} Complete application layout
  */
 const DefaultLayout = () => {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    limpiarCachesAntiguos()
+  }, [])
+
+  // si el servidor rechaza la sesión (venció o no es válida), se cierra y se vuelve al login
+  useEffect(() => {
+    const alExpirar = () => {
+      clearAuthSession()
+      navigate('/authentication/login', { replace: true, state: { sesionExpirada: true } })
+    }
+    window.addEventListener(EVENTO_SESION_EXPIRADA, alExpirar)
+    return () => window.removeEventListener(EVENTO_SESION_EXPIRADA, alExpirar)
+  }, [navigate])
+
   return (
     <div>
       <AppSidebar />

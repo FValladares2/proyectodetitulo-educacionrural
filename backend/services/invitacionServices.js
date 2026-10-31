@@ -53,10 +53,10 @@ const invitarUsuario = async (usuario, { organizacion }) => {
  */
 const definirContrasenaConInvitacion = async (token, contrasena) => {
     if (!isMongoConnected() || typeof token !== 'string' || !token) return false
-    const passwordHash = await hashPassword(contrasena)
+    const hash_contrasena = await hashPassword(contrasena)
     const result = await collections.usuarios.updateOne(
         { 'invitacion.token_hash': hashToken(token), 'invitacion.expira': { $gt: new Date() } },
-        { $set: { passwordHash }, $unset: { invitacion: '' } }
+        { $set: { hash_contrasena }, $unset: { invitacion: '' } }
     )
     return result.modifiedCount === 1
 }

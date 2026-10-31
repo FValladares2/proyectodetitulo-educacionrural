@@ -4,11 +4,11 @@ const asignServices = require('./asignServices')
 /**
  * Tareas de una asignatura y las entregas de los estudiantes.
  *
- * - tareas:   { id_asignatura, titulo, descripcion, apertura, limite, creada_por, createdAt, updatedAt }
+ * - tareas:   { id_asignatura, titulo, descripcion, apertura, limite, creada_por, creado_en, actualizado_en }
  * - entregas: { id_tarea, id_usuario, enviada_en, calificacion, comentario, calificada_por, calificada_en }
  *   Una por estudiante y tarea (índice único). Editar una entrega enviada es retirarla y enviar
  *   una nueva, así que el documento se reemplaza y su calificación anterior no se conserva.
- * - Los archivos de una entrega son recursos con { id_tarea, usuario } en vez de id_asignatura,
+ * - Los archivos de una entrega son recursos con { id_tarea, id_usuario } en vez de id_asignatura,
  *   por lo que ninguna consulta de recursos de la asignatura los incluye.
  */
 
@@ -133,7 +133,7 @@ const eliminarTarea = async (id) => {
     if (isMongoConnected() && collections.tareas && ObjectId.isValid(id)) {
         const idTarea = new ObjectId(String(id))
         await collections.entregas.deleteMany({ id_tarea: idTarea })
-        await collections.recursos.deleteMany({ id_tarea: String(id) })
+        await collections.recursos.deleteMany({ id_tarea: idTarea })
         return collections.tareas.deleteOne({ _id: idTarea })
     }
     return null
@@ -196,7 +196,7 @@ const listarEntregas = async (id_tarea) => {
                 from: 'recursos',
                 let: { usuario: '$id_usuario' },
                 pipeline: [
-                    { $match: { id_tarea: String(id_tarea), $expr: { $eq: ['$usuario', '$$usuario'] } } },
+                    { $match: { id_tarea: aObjectId(id_tarea), $expr: { $eq: ['$id_usuario', '$$usuario'] } } },
                     { $project: { recurso: 0 } },
                     { $sort: { nombre: 1 } },
                 ],
@@ -248,11 +248,11 @@ const motivoFueraDePlazo = async (tarea, userId) => {
 /**
  * Un estudiante puede subir, renombrar o eliminar los archivos de su entrega solo si son suyos,
  * la tarea está abierta y no la ha enviado (para modificarla debe retirarla primero).
- * @param {{ id_tarea: string, usuario: ObjectId }} contenedor
+ * @param {{ id_tarea: ObjectId, id_usuario: ObjectId }} contenedor
  * @returns {Promise<null | { status: number, message: string }>} null si puede editar
  */
 const motivoSinEdicionEntrega = async (contenedor, userId) => {
-    if (String(contenedor.usuario) !== String(userId)) {
+    if (String(contenedor.id_usuario) !== String(userId)) {
         return { status: 403, message: 'Solo quien subió el archivo puede modificarlo.' }
     }
     const tarea = await findTareaById(contenedor.id_tarea)

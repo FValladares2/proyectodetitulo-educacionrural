@@ -1,5 +1,7 @@
 const { isMongoConnected, ObjectId, collections } = require('../config/mongo')
 
+const aObjectId = (id) => (ObjectId.isValid(id) ? new ObjectId(String(id)) : id)
+
 const findOrgById = async (id) => {
   if (isMongoConnected() && collections.organizaciones) {
     return collections.organizaciones.findOne({ _id: new ObjectId(id) })
@@ -20,7 +22,7 @@ const findUserInOrg = async (id_organizacion, id_usuario) => {
 
 const findTeacherInOrg = async (id_organizacion, id_usuario) => {
   if (isMongoConnected() && collections.organizaciones) {
-    return collections.organizaciones.findOne({ _id: new ObjectId(id_organizacion), profesores: id_usuario })
+    return collections.organizaciones.findOne({ _id: new ObjectId(id_organizacion), profesores: aObjectId(id_usuario) })
   }
 
   return null
@@ -28,19 +30,10 @@ const findTeacherInOrg = async (id_organizacion, id_usuario) => {
 
 const findAdminInOrg = async (id_organizacion, id_usuario) => {
   if (isMongoConnected() && collections.organizaciones) {
-    return collections.organizaciones.findOne({ _id: new ObjectId(id_organizacion), admin: id_usuario })
+    return collections.organizaciones.findOne({ _id: new ObjectId(id_organizacion), administradores: aObjectId(id_usuario) })
   }
 
   return null
-}
-
-const getAllOrgs = async () => {
-  // only returns name and _id, otherwise will be slow and heavy with users and whatnot
-  if (isMongoConnected() && collections.organizaciones) {
-    return collections.organizaciones.find({}).project({ nombre: 1, _id: 1 }).toArray()
-  }
-
-  return []
 }
 
 const getAllOrgsWithUser = async (id_usuario) => {
@@ -99,7 +92,7 @@ const addUsersToOrgByRole = async (id_organizacion, usersByRole) => {
       operations.push({
         updateOne: {
           filter: { _id: new ObjectId(id_organizacion) },
-          update: { $addToSet: { admin: { $each: usersByRole.admin } } },
+          update: { $addToSet: { administradores: { $each: usersByRole.admin } } },
         },
       })
     }
@@ -127,15 +120,18 @@ const removeUserInOrg = async (id_organizacion, id_usuario) => {
 
 const insertAdminInOrg = async (id_organizacion, id_usuario) => {
   if (isMongoConnected() && collections.organizaciones) {
-    return collections.organizaciones.updateOne({ _id: new ObjectId(id_organizacion) }, { $push: { admin: id_usuario } })
+    return collections.organizaciones.updateOne({ _id: new ObjectId(id_organizacion) }, { $addToSet: { administradores: aObjectId(id_usuario) } })
   }
   return null
 }
 
 const removeAdminInOrg = async (id_organizacion, id_usuario) => {
-  // only removes if >1 admin
+  // solo quita si queda al menos otro administrador (existe un segundo elemento)
   if (isMongoConnected() && collections.organizaciones) {
-    return collections.organizaciones.updateOne({ _id: new ObjectId(id_organizacion), admin: { $gt: 1 } }, { $pull: { admin: id_usuario } })
+    return collections.organizaciones.updateOne(
+      { _id: new ObjectId(id_organizacion), 'administradores.1': { $exists: true } },
+      { $pull: { administradores: aObjectId(id_usuario) } }
+    )
   }
 
   return null
@@ -175,7 +171,7 @@ const getUsersInOrg = async (id_organizacion) => {
 const getAdminsInOrg = async (id_organizacion) => {
   if (isMongoConnected() && collections.organizaciones) {
     const org = await collections.organizaciones.findOne({ _id: new ObjectId(id_organizacion) })
-    return org?.admin ?? []
+    return org?.administradores ?? []
   }
 
   return []
@@ -204,7 +200,6 @@ module.exports = {
   findUserInOrg,
   findTeacherInOrg,
   findAdminInOrg,
-  getAllOrgs,
   getAllOrgsWithUser,
   getOrgById,
   createOrg,

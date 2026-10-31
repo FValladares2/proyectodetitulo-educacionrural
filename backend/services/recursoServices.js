@@ -65,6 +65,16 @@ const descifrarRecurso = async (recursoCifrado, userId) => {
   return encryption.decrypt(recursoCifrado, key)
 }
 
+const aObjectId = (id) => (ObjectId.isValid(id) ? new ObjectId(String(id)) : id)
+
+/**
+ * Converts every id of a container to ObjectId, as stored in the recursos collection.
+ * @param {object} contenedor - { id_asignatura } | { id_organizacion } | { id_tarea, id_usuario }
+ * @returns {object}
+ */
+const normalizarContenedor = (contenedor) =>
+  Object.fromEntries(Object.entries(contenedor).map(([campo, valor]) => [campo, aObjectId(valor)]))
+
 /**
  * Inserts a new recurso document into MongoDB.
  * @param {object} recurso
@@ -98,7 +108,7 @@ const findRecursoById = async (id) => {
 const findRecursosByAsignatura = async (id_asignatura) => {
   if (isMongoConnected() && collections.recursos) {
     return collections.recursos
-        .find({ id_asignatura })
+        .find({ id_asignatura: aObjectId(id_asignatura) })
         .project({ recurso: 0 })
         .sort({ nombre: 1 })
         .collation({ locale: 'es', strength: 2 })
@@ -115,7 +125,7 @@ const findRecursosByAsignatura = async (id_asignatura) => {
 const findRecursosByOrganizacion = async (id_organizacion) => {
   if (isMongoConnected() && collections.recursos) {
     return collections.recursos
-        .find({ id_organizacion })
+        .find({ id_organizacion: aObjectId(id_organizacion) })
         .project({ recurso: 0 })
         .sort({ nombre: 1 })
         .collation({ locale: 'es', strength: 2 })
@@ -126,14 +136,14 @@ const findRecursosByOrganizacion = async (id_organizacion) => {
 
 /**
  * Finds the files a user submitted to a tarea (metadata only).
- * @param {string} id_tarea
- * @param {ObjectId} usuario
+ * @param {string|ObjectId} id_tarea
+ * @param {string|ObjectId} id_usuario
  * @returns {Promise<Array>}
  */
-const findRecursosByTarea = async (id_tarea, usuario) => {
+const findRecursosByTarea = async (id_tarea, id_usuario) => {
   if (isMongoConnected() && collections.recursos) {
     return collections.recursos
-        .find({ id_tarea: String(id_tarea), usuario })
+        .find({ id_tarea: aObjectId(id_tarea), id_usuario: aObjectId(id_usuario) })
         .project({ recurso: 0 })
         .sort({ nombre: 1 })
         .toArray()
@@ -143,16 +153,16 @@ const findRecursosByTarea = async (id_tarea, usuario) => {
 
 /**
  * Returns the container a recurso belongs to:
- * - { id_tarea, usuario } for files submitted to a tarea, private to the student and the docentes
+ * - { id_tarea, id_usuario } for files submitted to a tarea, private to the student and the docentes
  * - { id_organizacion } for general organization files such as banners
  * - { id_asignatura } otherwise
  * @param {object} recurso
- * @returns {{ id_tarea: string, usuario: ObjectId } | { id_organizacion: string } | { id_asignatura: string }}
+ * @returns {{ id_tarea: ObjectId, id_usuario: ObjectId } | { id_organizacion: ObjectId } | { id_asignatura: ObjectId }}
  */
 const getContenedor = (recurso) => {
-  if (recurso.id_tarea) return { id_tarea: String(recurso.id_tarea), usuario: recurso.usuario }
-  if (recurso.id_organizacion) return { id_organizacion: String(recurso.id_organizacion) }
-  return { id_asignatura: String(recurso.id_asignatura) }
+  if (recurso.id_tarea) return { id_tarea: recurso.id_tarea, id_usuario: recurso.id_usuario }
+  if (recurso.id_organizacion) return { id_organizacion: recurso.id_organizacion }
+  return { id_asignatura: recurso.id_asignatura }
 }
 
 /**
@@ -164,7 +174,7 @@ const getContenedor = (recurso) => {
  */
 const existeNombreEnContenedor = async (contenedor, nombre, excluirId) => {
   if (isMongoConnected() && collections.recursos) {
-    const query = { ...contenedor, nombre }
+    const query = { ...normalizarContenedor(contenedor), nombre }
     if (excluirId && ObjectId.isValid(excluirId)) {
       query._id = { $ne: new ObjectId(excluirId) }
     }
@@ -200,11 +210,11 @@ const validarImagenBanner = async (img, contenedor) => {
   const mismoContenedor =
     contenedorRecurso &&
     Object.keys(contenedor).length === Object.keys(contenedorRecurso).length &&
-    Object.entries(contenedor).every(([campo, valor]) => contenedorRecurso[campo] === String(valor))
+    Object.entries(contenedor).every(([campo, valor]) => String(contenedorRecurso[campo]) === String(valor))
   if (!mismoContenedor) {
     return { status: 404, message: 'El recurso no existe en este espacio.' }
   }
-  if (!(recurso.mimetype || '').startsWith('image/')) {
+  if (!(recurso.tipo_mime || '').startsWith('image/')) {
     return { status: 400, message: 'El recurso seleccionado no es una imagen.' }
   }
 
@@ -236,7 +246,7 @@ const findRecursoAndDecrypt = async (id) => {
 
   if (doc.recurso) {
     try {
-      const decrypted = await descifrarRecurso(doc.recurso, doc.usuario)
+      const decrypted = await descifrarRecurso(doc.recurso, doc.id_usuario)
       return { ...doc, recurso: decrypted }
     } catch (err) {
       console.error(`Error descifrando recurso ${id}:`, err.message)
@@ -270,6 +280,7 @@ module.exports = {
   findRecursosByAsignatura,
   findRecursosByOrganizacion,
   findRecursosByTarea,
+  normalizarContenedor,
   getContenedor,
   existeNombreEnContenedor,
   validarImagenBanner,

@@ -7,6 +7,13 @@ const MONGODB_DB = process.env.MONGODB_DB || 'educacionrural'
 
 const client = new MongoClient(MONGODB_URI)
 
+// la URI puede incluir usuario y contraseña ("mongodb+srv://usuario:clave@host/..."): para los
+// registros se deja solo el esquema y el host, sin credenciales ni parámetros
+const describirUri = (uri) => {
+  const coincidencia = /^(mongodb(?:\+srv)?:\/\/)(?:[^@/]*@)?([^/?]*)/.exec(uri || '')
+  return coincidencia ? `${coincidencia[1]}${coincidencia[2]}` : '(URI no válida)'
+}
+
 // las entradas de la colección actividad se eliminan solas después de este tiempo
 const DIAS_RETENCION_ACTIVIDAD = 180
 // notificaciones (leídas o no) y correos de la cola, también con borrado automático
@@ -50,19 +57,25 @@ const connectMongo = async () => {
         await collections.usuarios.createIndex({ nombre: 1 })
         await collections.organizaciones.createIndex({ nombre: 1 })
         await collections.asignaturas.createIndex({ nombre: 1 })
-        await collections.recursos.createIndex({ nombre_archivo: 1 })
+        // recursos por contenedor (listas y nombres repetidos); solo en los documentos que lo tienen
+        await collections.recursos.createIndex({ id_asignatura: 1, nombre: 1 }, {
+            partialFilterExpression: { id_asignatura: { $exists: true } },
+        })
+        await collections.recursos.createIndex({ id_organizacion: 1, nombre: 1 }, {
+            partialFilterExpression: { id_organizacion: { $exists: true } },
+        })
         // un documento por usuario y asignatura; también resuelve el $lookup del orden por acceso
         await collections.accesos.createIndex({ id_usuario: 1, id_asignatura: 1 }, { unique: true })
         // archivos de entregas: se consultan por tarea y estudiante
-        await collections.recursos.createIndex({ id_tarea: 1, usuario: 1 }, {
+        await collections.recursos.createIndex({ id_tarea: 1, id_usuario: 1 }, {
             partialFilterExpression: { id_tarea: { $exists: true } },
         })
         await collections.tareas.createIndex({ id_asignatura: 1, limite: -1 })
         await collections.entregas.createIndex({ id_tarea: 1, id_usuario: 1 }, { unique: true })
         // notificaciones: lista del usuario, conteo de no leídas y borrado automático
-        await collections.notificaciones.createIndex({ id_usuario: 1, createdAt: -1 })
+        await collections.notificaciones.createIndex({ id_usuario: 1, creado_en: -1 })
         await collections.notificaciones.createIndex({ id_usuario: 1, leida: 1 })
-        await collections.notificaciones.createIndex({ createdAt: 1 }, {
+        await collections.notificaciones.createIndex({ creado_en: 1 }, {
             expireAfterSeconds: DIAS_RETENCION_NOTIFICACIONES * SEGUNDOS_POR_DIA,
         })
         // cola de correos: el proceso de envío busca los pendientes por fecha de intento
@@ -90,7 +103,7 @@ const connectMongo = async () => {
     } catch (error) {
     connected = false
     console.warn(
-      'MongoDB no disponible. No se pudo conectar a ' + MONGODB_URI + ' / ' + MONGODB_DB,
+      'MongoDB no disponible. No se pudo conectar a ' + describirUri(MONGODB_URI) + ' / ' + MONGODB_DB,
     )
     console.warn(error.message)
   }

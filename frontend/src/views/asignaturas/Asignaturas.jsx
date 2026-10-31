@@ -315,8 +315,8 @@ const Asignaturas = () => {
 
                       const userCount = Array.isArray(asign.usuarios) ? asign.usuarios.length : 0
 
-                      const createdDate = asign.createdAt
-                        ? new Date(asign.createdAt).toLocaleDateString()
+                      const createdDate = asign.creado_en
+                        ? new Date(asign.creado_en).toLocaleDateString()
                         : '-'
 
                       return (
@@ -333,11 +333,6 @@ const Asignaturas = () => {
                               </div>
                               <div>
                                 <span className="fw-semibold text-body">{asign.nombre}</span>
-                                {asign.codigo && (
-                                  <div className="small text-body-secondary">
-                                    Cód: {asign.codigo}
-                                  </div>
-                                )}
                               </div>
                             </div>
                           </CTableDataCell>

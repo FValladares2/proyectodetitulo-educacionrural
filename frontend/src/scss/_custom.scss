@@ -715,6 +715,16 @@ body {
   width: 100%;
 }
 
+// en escritorio el menú es fijo (sticky): se limita al alto visible bajo el encabezado y
+// se desplaza por dentro, para que lo último no quede fuera de la pantalla
+.asignatura-sidebar-caja {
+  max-height: calc(100vh - var(--app-breadcrumb1-offset) - 1.5rem);
+  max-height: calc(100dvh - var(--app-breadcrumb1-offset) - 1.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
 .asignatura-mobile-sidebar {
   .asignatura-mobile-sidebar-content {
     flex: 1 1 auto;

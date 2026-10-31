@@ -22,7 +22,7 @@ const fetchAsignaturas = async (
     // 'acceso' ordena por el último acceso del usuario; 'creado' por fecha de creación
     const ORDENES = {
       acceso: ['ultimoAcceso', 'desc'],
-      creado: ['createdAt', 'desc'],
+      creado: ['creado_en', 'desc'],
       nombre_desc: ['nombre', 'desc'],
       nombre_asc: ['nombre', 'asc'],
     }

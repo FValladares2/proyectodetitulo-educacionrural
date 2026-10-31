@@ -10,16 +10,6 @@ const { invitarUsuario } = require('../../services/invitacionServices')
 const { ObjectId } = require('../../config/mongo')
 const crypto = require('crypto')
 
-router.get('/api/org/all', async (req, res) => {
-    // public for testing purposes TODO: delete later
-    try {
-        const orgs = await orgServices.getAllOrgs()
-        res.status(200).json(orgs)
-    } catch (error) {
-        res.status(500).json({ message: error.message })
-    }
-})
-
 router.get('/api/org/user', authenticate, async (req, res) => {
     try {
         const user = await getUserFromToken(req.headers.authorization.split(' ')[1])
@@ -52,19 +42,22 @@ router.get('/api/org/:id', authenticate, async (req, res) => {
     }
 })
 
-router.post('/api/org/create', async (req, res) => {
+// quien crea la organización queda como su administrador
+router.post('/api/org/create', authenticate, async (req, res) => {
     try {
-        const { nombre, id_usuario } = req.body
+        const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : ''
 
-        if (!nombre || !id_usuario) {
+        if (!nombre) {
             return res.status(400).json({ message: 'Faltan campos obligatorios.' })
         }
 
+        const id_usuario = req.user._id
         const org = await orgServices.createOrg({
             nombre,
-            admin: [id_usuario],
+            administradores: [id_usuario],
             profesores: [id_usuario],
-            usuarios: [id_usuario]
+            usuarios: [id_usuario],
+            creado_en: new Date(),
         })
 
         res.status(200).json(org)
@@ -210,13 +203,13 @@ router.post('/api/org/users/batch', authenticate, async (req, res) => {
                     return res.status(400).json({ message: `El nuevo usuario ${correo} requiere nombre, y la contraseña debe tener al menos 8 caracteres.` })
                 }
                 const nombre = userData.nombre.trim()
-                const passwordHash = userData.contrasena ? await userServices.hashPassword(userData.contrasena) : null
+                const hash_contrasena = userData.contrasena ? await userServices.hashPassword(userData.contrasena) : null
                 const result = await userServices.insertUser({
                     nombre,
                     correo,
-                    passwordHash,
-                    encryptionSalt: crypto.randomBytes(16).toString('base64'),
-                    createdAt: new Date(),
+                    hash_contrasena,
+                    sal_cifrado: crypto.randomBytes(16).toString('base64'),
+                    creado_en: new Date(),
                 })
                 user = { _id: result.insertedId }
                 await userServices.setUserMainOrg(result.insertedId, id_organizacion)

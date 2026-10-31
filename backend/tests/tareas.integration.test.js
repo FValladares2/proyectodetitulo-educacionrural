@@ -200,11 +200,15 @@ describeConMongo('tareas y entregas (MongoDB real)', () => {
 
   test('eliminar una tarea elimina sus entregas y archivos', async () => {
     const { collections } = mongo
+    const archivosDeTarea = { id_tarea: new mockObjectId(abierta._id) }
+    // los archivos de entrega guardan sus referencias como ObjectId
+    expect(await collections.recursos.countDocuments(archivosDeTarea)).toBeGreaterThan(0)
+
     expect((await como('ana').delete(`/api/tarea/${abierta._id}`)).status).toBe(403)
     expect((await como('docente').delete(`/api/tarea/${abierta._id}`)).status).toBe(200)
 
     expect(await collections.tareas.countDocuments({ _id: new mockObjectId(abierta._id) })).toBe(0)
     expect(await collections.entregas.countDocuments({ id_tarea: new mockObjectId(abierta._id) })).toBe(0)
-    expect(await collections.recursos.countDocuments({ id_tarea: abierta._id })).toBe(0)
+    expect(await collections.recursos.countDocuments(archivosDeTarea)).toBe(0)
   })
 })

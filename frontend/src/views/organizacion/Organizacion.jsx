@@ -39,7 +39,7 @@ const Organizacion = () => {
   const [allOrgs, setAllOrgs] = useState([])
   const authUser = useMemo(() => getAuthUser(), [])
   const esAdmin = Boolean(
-    authUser && (currentOrg?.admin || []).some((a) => String(a) === String(authUser._id)),
+    authUser && (currentOrg?.administradores || []).some((a) => String(a) === String(authUser._id)),
   )
 
   const handleCambiarImg = async (img) => {
@@ -124,7 +124,7 @@ const Organizacion = () => {
                   Descripción: {currentOrg?.descripcion || 'N/A'}
                 </p>
                 <p className="text-body-secondary mb-0">
-                  Información de contacto: {currentOrg?.informacionContacto || 'N/A'}
+                  Información de contacto: {currentOrg?.informacion_contacto || 'N/A'}
                 </p>
                 <p className="text-body-secondary mb-0">
                   Dirección: {currentOrg?.direccion || 'N/A'}
