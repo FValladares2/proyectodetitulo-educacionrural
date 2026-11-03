@@ -76,7 +76,22 @@ const addUsersToOrgBatch = (id_organizacion, usuarios) =>
     mensajeError: 'No se pudieron agregar los usuarios.',
   })
 
+const quitarUsuarioDeOrg = (id_organizacion, id_usuario) =>
+  apiFetch(`/api/org/${id_organizacion}/users/${id_usuario}`, {
+    method: 'DELETE',
+    mensajeError: 'No se pudo quitar al usuario.',
+  })
+
+// { nombre, descripcion, direccion, informacion_contacto }; devuelve la organización actualizada
+const actualizarOrg = (id_organizacion, datos) =>
+  apiFetch(`/api/org/${id_organizacion}`, {
+    method: 'PUT',
+    body: datos,
+    mensajeError: 'No se pudo guardar la organización.',
+  })
+
 const orgServices = {
+  actualizarOrg,
   getInitialOrgId,
   getOrgById,
   getOrgsWithUser,
@@ -84,9 +99,11 @@ const orgServices = {
   updateInitialOrgId,
   updateOrgImg,
   addUsersToOrgBatch,
+  quitarUsuarioDeOrg,
 }
 
 export {
+  actualizarOrg,
   getInitialOrgId,
   getOrgById,
   getOrgsWithUser,
@@ -94,5 +111,6 @@ export {
   updateInitialOrgId,
   updateOrgImg,
   addUsersToOrgBatch,
+  quitarUsuarioDeOrg,
 }
 export default orgServices

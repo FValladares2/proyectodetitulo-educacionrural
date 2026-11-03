@@ -264,10 +264,14 @@
 // ------------------------------------------------------------------------------
 
 html {
+  // AppHeader reemplaza --app-breadcrumb-offset y --app-topbar-alto con los altos medidos;
+  // estos valores solo se usan antes de la primera medición
+  --app-topbar-alto: 4rem;
   --app-breadcrumb-offset: 7rem;
-  --app-breadcrumb1-offset: 8rem;
-  --app-header-offset: 11rem;
-  scroll-padding-top: var(--app-header-offset);
+  --app-breadcrumb1-offset: calc(var(--app-breadcrumb-offset) + 1rem);
+  // los anclajes quedan bajo lo fijo arriba; los títulos de la asignatura suman su barra con
+  // scroll-margin-top (el navegador suma ambos valores)
+  scroll-padding-top: var(--app-breadcrumb-offset);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -522,6 +526,26 @@ body {
     &:hover {
       color: var(--primary);
     }
+  }
+}
+
+// Migas de pan: barra propia bajo el encabezado, fija salvo en pantallas bajas (AppHeader)
+.app-migas {
+  position: sticky;
+  top: var(--app-topbar-alto);
+  // bajo el encabezado (.header-sticky de CoreUI: 1020) y sobre la barra de la asignatura
+  // (1015) y la del editor (1010), que se deslizan bajo ella
+  z-index: 1019;
+  background-color: var(--background);
+  border-bottom: 1px solid var(--border);
+
+  .breadcrumb {
+    min-height: 2.75rem;
+    align-items: center;
+  }
+
+  @media (max-height: 500px) {
+    position: static;
   }
 }
 
@@ -800,9 +824,7 @@ body {
   h4,
   h5,
   h6 {
-    scroll-margin-top: calc(
-      var(--app-breadcrumb-offset) + var(--asignatura-header-height, 53px) + 12px
-    );
+    scroll-margin-top: calc(var(--asignatura-header-height, 53px) + 12px);
     line-height: 1.25;
     margin-top: 1.5rem;
     margin-bottom: 0.5rem;
@@ -890,13 +912,6 @@ body {
 // variables de CoreUI para que siga el tema claro/oscuro.
 // ------------------------------------------------------------------------------
 
-// la página de archivos recupera el padding lateral del contenedor en teléfonos
-@media (max-width: 575.98px) {
-  .archivos-pagina {
-    margin-inline: -1rem;
-  }
-}
-
 // se usan ambas clases para superar en especificidad a los selectores de la librería
 .explorador-recursos.file-explorer {
   // alturas totales: CoreUI aplica box-sizing: border-box, así que incluyen padding y borde
@@ -936,6 +951,29 @@ body {
 
   .files {
     height: calc(100% - var(--fm-alto-breadcrumb));
+  }
+
+  // --- Nombres en la vista de cuadrícula: la librería los corta en una sola línea de ~15
+  // caracteres; se muestran hasta en 3 líneas (el nombre completo sigue en el title) ---
+  .files:not(.list) .file-item {
+    height: auto;
+    min-height: 81px;
+    justify-content: flex-start;
+    padding-bottom: 6px;
+  }
+
+  .files:not(.list) .file-item .file-name {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    max-width: 124px;
+    white-space: normal;
+    text-align: center;
+    font-size: 0.875rem;
+    line-height: 1.25;
+    // nombres sin espacios (guiones bajos, puntos) también se parten
+    overflow-wrap: anywhere;
   }
 
   // --- Colores ---
@@ -1017,6 +1055,95 @@ body {
 
     .files-container .folders-preview {
       width: 100% !important;
+    }
+
+    // los modales traen anchos fijos en porcentaje (25-50%) como estilo en línea
+    .fm-modal {
+      width: calc(100vw - 1rem) !important;
+      max-width: 36rem;
+    }
+
+    // subir archivos: la zona para soltar y la lista de progreso, una bajo la otra
+    .fm-upload-file {
+      flex-direction: column;
+      gap: 0;
+      padding: 12px;
+    }
+
+    .fm-upload-file .select-files .draggable-file-input {
+      height: 140px;
+    }
+
+    // con archivos en la lista, la librería reduce la zona para soltar a 40% (.file-selcted)
+    .fm-upload-file .select-files,
+    .fm-upload-file.file-selcted .select-files,
+    .fm-upload-file .files-progress {
+      width: 100%;
+    }
+
+    .fm-upload-file .files-progress ul {
+      height: auto;
+      max-height: 180px;
+    }
+
+    // acciones del archivo seleccionado: se desplazan en horizontal en vez de desbordar
+    .toolbar.file-selected .file-action-container {
+      gap: 4px;
+    }
+
+    .toolbar.file-selected .file-action-container > div {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+
+    .toolbar.file-selected .file-action {
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+  }
+
+  // teléfonos: dos elementos por fila en la cuadrícula en vez del ancho fijo de 138px
+  @media (max-width: 575.98px) {
+    // acciones del archivo seleccionado solo con ícono; el texto queda para lectores de
+    // pantalla (el texto viene de la librería y no se puede abreviar)
+    .toolbar.file-selected .file-action {
+      padding-inline: 10px;
+    }
+
+    .toolbar.file-selected .file-action > span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+    }
+
+    .files:not(.list) .file-item-container {
+      flex: 0 0 calc(50% - 0.25em);
+      min-width: 0;
+    }
+
+    .files:not(.list) .file-item {
+      width: 100%;
+    }
+
+    .files:not(.list) .file-item .file-name {
+      max-width: 100%;
+    }
+  }
+
+  // en los más angostos, "N elementos seleccionados" deja solo la ✕ para quitar la selección
+  @media (max-width: 419.98px) {
+    .toolbar.file-selected .file-action-container > button > span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
     }
   }
 }
@@ -1162,6 +1289,11 @@ body {
   overflow: hidden;
 }
 
+// menú del usuario: ancho fijo para que nombres y correos largos se corten con "…"
+.usuario-menu {
+  width: min(18rem, calc(100vw - 2rem));
+}
+
 .notificaciones-lista {
   max-height: min(28rem, 60vh);
   overflow-y: auto;
@@ -1214,5 +1346,103 @@ body {
     margin-top: 0.45rem;
     border-radius: 50%;
     background-color: var(--cui-primary);
+  }
+}
+
+// ------------------------------------------------------------------------------
+// Tablas de integrantes (organización y asignatura)
+// ------------------------------------------------------------------------------
+
+// la columna de usuario ocupa el espacio libre y corta nombre y correo con "…" en vez de
+// ensanchar la tabla; el ancho mínimo evita que quede ilegible en teléfonos
+.tabla-integrantes .tabla-integrantes-usuario {
+  width: 100%;
+  max-width: 0;
+  min-width: 9rem;
+}
+
+// ------------------------------------------------------------------------------
+// Utilidades
+// ------------------------------------------------------------------------------
+
+// Bootstrap/CoreUI no la incluyen: permite que un hijo flex se encoja y que .text-truncate
+// corte su texto en vez de ensanchar el contenedor
+.min-w-0 {
+  min-width: 0;
+}
+
+// ------------------------------------------------------------------------------
+// Pantallas pequeñas (desde 320px de ancho)
+// ------------------------------------------------------------------------------
+
+@media (max-width: 575.98px) {
+  // el contenedor de la página y las tarjetas suman su padding a cada lado: se reduce para
+  // dejar el ancho al contenido
+  .card {
+    --cui-card-spacer-x: 0.75rem;
+    --cui-card-spacer-y: 0.75rem;
+    --cui-card-cap-padding-x: 0.75rem;
+  }
+
+  .modal {
+    --cui-modal-padding: 0.75rem;
+    --cui-modal-header-padding: 0.75rem;
+  }
+}
+
+// en pantalla completa (modales largos en teléfonos), un formulario que envuelve el cuerpo y
+// el pie debe ser parte del flex para que el cuerpo se desplace y el pie quede visible
+.modal-content > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+// título de la asignatura: cede espacio a los botones hasta un mínimo; con menos ancho, los
+// botones pasan a la línea siguiente en vez de reducir el título a una letra por línea
+.asignatura-header-titulo {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+// ------------------------------------------------------------------------------
+// Pantallas bajas (teléfonos en horizontal). Al final del archivo para que prevalezca sobre
+// las reglas base de las mismas clases.
+// ------------------------------------------------------------------------------
+
+// en pantallas bajas tampoco queda fija la barra de la asignatura: dos barras fijas dejarían
+// muy poco alto para el contenido
+@media (max-height: 500px) {
+  .sticky-asignatura-header {
+    position: static !important;
+    // backdrop-filter haría que los botones flotantes (position: fixed) se ubiquen respecto
+    // de esta barra en vez de la pantalla
+    backdrop-filter: none;
+  }
+
+  // los botones de la barra (menú, editar, cancelar, guardar) flotan abajo a la derecha para
+  // seguir disponibles al desplazarse
+  .asignatura-header-acciones {
+    position: fixed;
+    right: max(0.75rem, env(safe-area-inset-right));
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    z-index: 1025;
+    padding: 0.375rem;
+    background-color: var(--cui-card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+  }
+
+  // espacio para que los botones flotantes no tapen el final del contenido
+  .sticky-asignatura-header + .card-body {
+    padding-bottom: 4.5rem;
+  }
+
+  // la barra de la asignatura ya no está fija: títulos y barra del editor no la descuentan
+  .asignatura-markdown,
+  .asignatura-editor {
+    --asignatura-header-height: 0px;
   }
 }

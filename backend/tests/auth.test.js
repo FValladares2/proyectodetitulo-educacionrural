@@ -1,9 +1,20 @@
 const { ObjectId: mockObjectId } = require('mongodb')
 
 const mockUsuario = { _id: new mockObjectId(), nombre: 'Ana', correo: 'ana@prueba.cl' }
+const mockDesactivado = { _id: new mockObjectId(), nombre: 'Beto', desactivado_en: new Date() }
+// cambió su contraseña en el futuro respecto de los tokens creados en la prueba
+const mockCambioContrasena = {
+  _id: new mockObjectId(),
+  nombre: 'Carla',
+  // redondeado al segundo, como lo guarda userServices.cambiarContrasena
+  sesiones_validas_desde: new Date(Math.floor(Date.now() / 1000) * 1000 + 60 * 1000),
+}
 
 jest.mock('../services/userServices', () => ({
-  findUserById: jest.fn(async (id) => (String(id) === String(mockUsuario._id) ? mockUsuario : null)),
+  findUserById: jest.fn(async (id) =>
+    [mockUsuario, mockDesactivado, mockCambioContrasena].find((u) => String(u._id) === String(id)) ?? null,
+  ),
+  registrarConexion: jest.fn(async () => null),
 }))
 
 process.env.TOKEN_SECRETO = 'secreto-de-prueba'
@@ -19,6 +30,20 @@ const firmarCon = (secreto, contenido) => {
 
 describe('tokens de sesión', () => {
   afterEach(() => jest.useRealTimers())
+
+  test('cambiar la contraseña invalida los tokens anteriores', async () => {
+    const anterior = createToken(mockCambioContrasena)
+    expect(await getUserFromToken(anterior)).toBeNull()
+
+    // un token emitido en el mismo segundo del cambio sigue siendo válido
+    jest.useFakeTimers({ now: mockCambioContrasena.sesiones_validas_desde })
+    const nuevo = createToken(mockCambioContrasena)
+    expect(await getUserFromToken(nuevo)).toBe(mockCambioContrasena)
+  })
+
+  test('una cuenta desactivada no puede usar sus tokens', async () => {
+    expect(await getUserFromToken(createToken(mockDesactivado))).toBeNull()
+  })
 
   test('un token recién creado identifica al usuario', async () => {
     const token = createToken(mockUsuario)

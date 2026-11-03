@@ -14,6 +14,8 @@ const fetchAsignaturas = async (
   setTotalPages,
   setLoading,
   setError,
+  setDocenteEnAlguna = undefined,
+  todas = false,
 ) => {
   setLoading(true)
   setError('')
@@ -44,9 +46,13 @@ const fetchAsignaturas = async (
       params.append('soloDocente', 'true')
     }
 
-    if (activoFilter !== 'all') {
-      params.append('activo', activoFilter)
+    // todas las de la organización, no solo las propias (solo administradores)
+    if (todas) {
+      params.append('todas', 'true')
     }
+
+    // sin el parámetro el backend devuelve solo las activas; un valor vacío no filtra por estado
+    params.append('activo', activoFilter === 'all' ? '' : activoFilter)
 
     const data = await apiFetch(`/api/asign/user?${params.toString()}`, {
       signal: controller.signal,
@@ -56,6 +62,7 @@ const fetchAsignaturas = async (
     setAsignaturas(data.data || [])
     setTotal(data.total || 0)
     setTotalPages(data.totalPages || 1)
+    setDocenteEnAlguna?.(Boolean(data.docenteEnAlguna))
   } catch (err) {
     if (esAbortError(err)) return
     console.error('Error al consultar asignaturas:', err)
@@ -66,8 +73,14 @@ const fetchAsignaturas = async (
   }
 }
 
-// lista sin paginar (hasta `limit`) de las asignaturas activas del usuario en la organización
-const fetchAsignaturasUsuario = async (id_organizacion, signal = undefined, limit = 100) => {
+// lista sin paginar (hasta `limit`) de las asignaturas del usuario en la organización; con
+// incluirInactivas también las inactivas, que son de solo lectura (para ver sus archivos)
+const fetchAsignaturasUsuario = async (
+  id_organizacion,
+  signal = undefined,
+  limit = 100,
+  { incluirInactivas = false } = {},
+) => {
   const params = new URLSearchParams({
     id_organizacion,
     page: '1',
@@ -75,12 +88,28 @@ const fetchAsignaturasUsuario = async (id_organizacion, signal = undefined, limi
     sortBy: 'nombre',
     order: 'asc',
   })
+  // el backend filtra activas por defecto; un valor vacío no filtra por estado
+  if (incluirInactivas) params.append('activo', '')
   const data = await apiFetch(`/api/asign/user?${params.toString()}`, {
     signal,
     mensajeError: 'Error al obtener las asignaturas.',
   })
   return data.data || []
 }
+
+// nombre y estado; solo docentes de la asignatura y administradores de la organización
+const fetchConfigAsignatura = (id, signal = undefined) =>
+  apiFetch(`/api/asign/${id}/config`, {
+    signal,
+    mensajeError: 'No se pudo obtener la configuración de la asignatura.',
+  })
+
+const actualizarConfigAsignatura = (id, cambios) =>
+  apiFetch(`/api/asign/${id}/config`, {
+    method: 'PUT',
+    body: cambios,
+    mensajeError: 'No se pudo guardar la configuración de la asignatura.',
+  })
 
 const fetchAsignaturaById = async (id, signal = undefined) => {
   try {
@@ -108,6 +137,12 @@ const updateAsignaturaById = async (id, asignatura, signal = undefined) => {
     return null
   }
 }
+
+const quitarUsuarioDeAsign = (id_asignatura, id_usuario) =>
+  apiFetch(`/api/asign/${id_asignatura}/users/${id_usuario}`, {
+    method: 'DELETE',
+    mensajeError: 'No se pudo quitar al usuario.',
+  })
 
 const getAsignUsers = async (id, signal = undefined) => {
   try {
@@ -158,6 +193,9 @@ const asignServices = {
   updateAsignaturaImg,
   createAsignatura,
   getAsignUsers,
+  fetchConfigAsignatura,
+  actualizarConfigAsignatura,
+  quitarUsuarioDeAsign,
   addUsersToAsignBatch,
 }
 
@@ -169,6 +207,9 @@ export {
   updateAsignaturaImg,
   createAsignatura,
   getAsignUsers,
+  fetchConfigAsignatura,
+  actualizarConfigAsignatura,
+  quitarUsuarioDeAsign,
   addUsersToAsignBatch,
 }
 export default asignServices

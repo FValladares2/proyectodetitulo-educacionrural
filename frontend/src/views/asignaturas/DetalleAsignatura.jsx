@@ -1,5 +1,5 @@
 import { CCard, CCardHeader, CCardBody, CSpinner, CButton, CCol, CRow, CBadge } from '@coreui/react'
-import { cilMenu, cilPeople, cilFolder, cilPencil } from '@coreui/icons'
+import { cilMenu, cilPeople, cilFolder, cilPencil, cilSettings } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import EditorAsignatura from './EditorAsignatura'
@@ -60,6 +60,9 @@ const DetalleAsignatura = () => {
   const esDocente = Boolean(
     authUser && (asignatura?.docentes || []).some((d) => String(d) === String(authUser._id)),
   )
+  // una asignatura inactiva es de solo lectura (el backend también lo valida)
+  const inactiva = asignatura?.activo === false
+  const puedeEditar = esDocente && !inactiva
 
   const handleCambiarImg = async (img) => {
     await updateAsignaturaImg(id, img)
@@ -280,7 +283,7 @@ const DetalleAsignatura = () => {
                       setTareaAbierta(String(tareaId))
                     }}
                     onNuevaTarea={
-                      esDocente
+                      puedeEditar
                         ? () => {
                             setMobileSidebarVisible(false)
                             abrirFormularioTarea()
@@ -297,6 +300,15 @@ const DetalleAsignatura = () => {
                         icon: cilPeople,
                       },
                       { name: 'Archivos', to: '/archivos/' + id, icon: cilFolder },
+                      ...(esDocente
+                        ? [
+                            {
+                              name: 'Configuración',
+                              to: '/asignaturas/' + id + '/configuracion',
+                              icon: cilSettings,
+                            },
+                          ]
+                        : []),
                     ]}
                   />
                 </CCol>
@@ -306,7 +318,7 @@ const DetalleAsignatura = () => {
                 <CCard className="mb-4 shadow-sm border-0">
                   <BannerRecurso
                     img={asignatura?.img}
-                    puedeEditar={esDocente}
+                    puedeEditar={puedeEditar}
                     contenedor={asignatura}
                     onCambiar={handleCambiarImg}
                   />
@@ -314,16 +326,24 @@ const DetalleAsignatura = () => {
                     ref={cardHeaderRef}
                     className="sticky-asignatura-header border-bottom py-2 px-3"
                   >
-                    <div className="d-flex justify-content-between align-items-center">
-                      <div className="d-flex align-items-center gap-2 flex-wrap min-w-0 me-2">
+                    <div className="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                      <div className="asignatura-header-titulo d-flex align-items-center gap-2 flex-wrap">
                         <h4 className="mb-0 fw-semibold fs-5 text-break">{asignatura?.nombre}</h4>
                         {editando && (
                           <CBadge color="warning" className="text-dark border border-warning">
                             <span className="ms-1">Modo edición</span>
                           </CBadge>
                         )}
+                        {inactiva && (
+                          <CBadge
+                            color="secondary"
+                            title="La asignatura está inactiva: su contenido se puede ver, pero no modificar."
+                          >
+                            Inactiva · solo lectura
+                          </CBadge>
+                        )}
                       </div>
-                      <div className="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
+                      <div className="asignatura-header-acciones d-flex align-items-center gap-2 flex-shrink-0 ms-auto">
                         {!editando && (
                           <CButton
                             color="secondary"
@@ -356,9 +376,11 @@ const DetalleAsignatura = () => {
                             </CButton>
                           </>
                         ) : (
-                          <CButton color="primary" size="sm" onClick={handleEditClick}>
-                            <CIcon icon={cilPencil} /> Editar
-                          </CButton>
+                          puedeEditar && (
+                            <CButton color="primary" size="sm" onClick={handleEditClick}>
+                              <CIcon icon={cilPencil} /> Editar
+                            </CButton>
+                          )
                         )}
                       </div>
                     </div>
@@ -403,6 +425,7 @@ const DetalleAsignatura = () => {
             }}
             idAsignatura={id}
             esDocente={esDocente}
+            soloLectura={inactiva}
             resumen={tareaAbierta ? tareasContexto.tareas?.get(tareaAbierta) : null}
             onCambio={recargarTareas}
             onEditar={abrirFormularioTarea}

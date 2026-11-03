@@ -7,6 +7,7 @@ const recursoServices = require('../../services/recursoServices')
 const { ACCIONES, registrarActividad } = require('../../services/actividadServices')
 const { notificar } = require('../../services/notificacionServices')
 const { invitarUsuario } = require('../../services/invitacionServices')
+const membresiaServices = require('../../services/membresiaServices')
 const { ObjectId } = require('../../config/mongo')
 const crypto = require('crypto')
 
@@ -14,7 +15,14 @@ router.get('/api/org/user', authenticate, async (req, res) => {
     try {
         const user = await getUserFromToken(req.headers.authorization.split(' ')[1])
         const orgs = await orgServices.getAllOrgsWithUser(user._id)
-        res.status(200).json(orgs)
+        // rol del usuario en cada organización, para que el frontend oculte acciones sin permiso
+        const rolEn = (org) => {
+            const contiene = (lista) => (lista || []).some((id) => String(id) === String(user._id))
+            if (contiene(org.administradores)) return 'admin'
+            if (contiene(org.profesores)) return 'profesor'
+            return 'alumno'
+        }
+        res.status(200).json(orgs.map(({ administradores, profesores, ...org }) => ({ ...org, rol: rolEn({ administradores, profesores }) })))
     } catch (error) {
         console.error('Error al obtener organizaciones:', error)
         res.status(500).json({ message: 'No se pudo obtener organizaciones.' })
@@ -42,39 +50,17 @@ router.get('/api/org/:id', authenticate, async (req, res) => {
     }
 })
 
-// quien crea la organización queda como su administrador
-router.post('/api/org/create', authenticate, async (req, res) => {
-    try {
-        const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim() : ''
-
-        if (!nombre) {
-            return res.status(400).json({ message: 'Faltan campos obligatorios.' })
-        }
-
-        const id_usuario = req.user._id
-        const org = await orgServices.createOrg({
-            nombre,
-            administradores: [id_usuario],
-            profesores: [id_usuario],
-            usuarios: [id_usuario],
-            creado_en: new Date(),
-        })
-
-        res.status(200).json(org)
-    } catch (error) {
-        console.error('Error al crear la organización:', error)
-        res.status(500).json({ message: 'No se pudo crear la organización.' })
-    }
-})
-
+// cambia la organización principal; solo a una a la que el usuario pertenece
 router.put('/api/org/user/update', authenticate, async (req, res) => {
     try {
-        const asker = await getUserFromToken(req.headers.authorization.split(' ')[1])
-
+        const asker = req.user
         const { id_organizacion } = req.body
 
-        if (!id_organizacion) {
+        if (!id_organizacion || !ObjectId.isValid(id_organizacion)) {
             return res.status(400).json({ message: 'Faltan campos obligatorios.' })
+        }
+        if (!(await orgServices.findUserInOrg(id_organizacion, asker._id))) {
+            return res.status(403).json({ message: 'No perteneces a esa organización.' })
         }
 
         const org = await userServices.setUserMainOrg(asker._id, id_organizacion)
@@ -127,17 +113,8 @@ router.get('/api/users/batch/:id_organizacion', authenticate, async (req, res) =
             return res.status(400).json({ message: 'Faltan campos obligatorios.' })
         }
 
-        const asker = await getUserFromToken(req.headers.authorization.split(' ')[1])
-        if (!asker) {
-            return res.status(404).json({ message: 'No se pudo obtener la información del usuario solicitante.' })
-        }
-
-        if (!asker.org_principal) {
-            console.log("era problema con asker.org_principal")
-            return res.status(403).json({ message: 'No tienes permisos para obtener la información de estos usuarios.' })
-        }
+        const asker = req.user
         const isUserInOrg = await orgServices.findUserInOrg(id_organizacion, asker._id)
-        console.log(isUserInOrg, asker._id, " - api/users/batch/:",id_organizacion)
         if (!isUserInOrg) {
             return res.status(403).json({ message: 'No tienes permisos para obtener la información de estos usuarios.' })
         }
@@ -159,9 +136,11 @@ router.get('/api/users/batch/:id_organizacion', authenticate, async (req, res) =
             teacher => !adminIds.includes(teacher.toString())
         );
 
-        const admins = await userServices.getUserBatchBasicInfo(adminsInOrg)
-        const teachers = await userServices.getUserBatchBasicInfo(filteredTeachers)
-        const users = await userServices.getUserBatchBasicInfo(filteredUsers)
+        // la última conexión solo la ven los administradores
+        const conConexion = adminIds.includes(String(asker._id))
+        const admins = await userServices.getUserBatchBasicInfo(adminsInOrg, { conConexion })
+        const teachers = await userServices.getUserBatchBasicInfo(filteredTeachers, { conConexion })
+        const users = await userServices.getUserBatchBasicInfo(filteredUsers, { conConexion })
 
         res.status(200).json({ admins, teachers, users })
     } catch (error) {
@@ -196,7 +175,7 @@ router.post('/api/org/users/batch', authenticate, async (req, res) => {
                 return res.status(400).json({ message: 'Cada usuario debe tener correo y un rol válido.' })
             }
 
-            let user = await userServices.findUserByUsernameOrEmail(correo)
+            let user = await userServices.findUserByEmail(correo)
             if (!user) {
                 // la contraseña inicial es opcional: sin ella, el usuario la define con la invitación
                 if (!userData.nombre || (userData.contrasena && userData.contrasena.length < 8)) {
@@ -217,6 +196,8 @@ router.post('/api/org/users/batch', authenticate, async (req, res) => {
                 invitados.push({ _id: result.insertedId, nombre, correo })
             } else if (!miembrosPrevios.has(String(user._id))) {
                 agregados.push(user._id)
+                // una cuenta desactivada por haberse quedado sin organizaciones vuelve a activarse
+                await membresiaServices.reactivarCuenta(user._id, id_organizacion)
             }
             usersByRole[role].push(user._id)
         }
@@ -245,6 +226,98 @@ router.post('/api/org/users/batch', authenticate, async (req, res) => {
     } catch (error) {
         console.error('Error al agregar usuarios a la organización:', error)
         res.status(500).json({ message: 'No se pudieron agregar los usuarios.' })
+    }
+})
+
+// datos visibles de la organización; solo administradores. Campos de texto, todos opcionales
+// salvo el nombre; una cadena vacía borra el campo
+const CAMPOS_ORGANIZACION = {
+    nombre: { max: 120, obligatorio: true },
+    descripcion: { max: 1000 },
+    direccion: { max: 200 },
+    informacion_contacto: { max: 300 },
+}
+
+router.put('/api/org/:id', authenticate, async (req, res) => {
+    try {
+        const { id } = req.params
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Parámetros inválidos.' })
+        }
+        if (!(await orgServices.findAdminInOrg(id, req.user._id))) {
+            return res.status(403).json({ message: 'Solo un administrador puede editar la organización.' })
+        }
+
+        const set = {}
+        const unset = {}
+        for (const [campo, { max, obligatorio }] of Object.entries(CAMPOS_ORGANIZACION)) {
+            const valor = req.body[campo]
+            if (valor === undefined) continue
+            if (typeof valor !== 'string' || valor.trim().length > max) {
+                return res.status(400).json({ message: `El campo ${campo} debe ser texto de hasta ${max} caracteres.` })
+            }
+            const limpio = valor.trim()
+            if (limpio) {
+                set[campo] = limpio
+            } else if (obligatorio) {
+                return res.status(400).json({ message: 'El nombre es obligatorio.' })
+            } else {
+                unset[campo] = ''
+            }
+        }
+        if (Object.keys(set).length === 0 && Object.keys(unset).length === 0) {
+            return res.status(400).json({ message: 'No hay cambios que guardar.' })
+        }
+
+        set.actualizado_en = new Date()
+        const actualizacion = { $set: set }
+        if (Object.keys(unset).length > 0) actualizacion.$unset = unset
+        await orgServices.actualizarOrg(id, actualizacion)
+
+        registrarActividad({
+            contenedor: { id_organizacion: id },
+            id_usuario: req.user._id,
+            accion: ACCIONES.ORGANIZACION_EDITADA,
+            detalle: { campos: [...Object.keys(set), ...Object.keys(unset)].filter((c) => c !== 'actualizado_en') },
+        })
+        res.status(200).json(await orgServices.getOrgById(id))
+    } catch (error) {
+        console.error('Error al editar la organización:', error)
+        res.status(500).json({ message: 'No se pudo editar la organización.' })
+    }
+})
+
+// quitar a un integrante; solo administradores (también a sí mismos si queda otro administrador)
+router.delete('/api/org/:id/users/:id_usuario', authenticate, async (req, res) => {
+    try {
+        const { id, id_usuario } = req.params
+        if (!ObjectId.isValid(id) || !ObjectId.isValid(id_usuario)) {
+            return res.status(400).json({ message: 'Parámetros inválidos.' })
+        }
+        if (!(await orgServices.findAdminInOrg(id, req.user._id))) {
+            return res.status(403).json({ message: 'Solo un administrador puede quitar usuarios.' })
+        }
+
+        const organizacion = await orgServices.getOrgById(id)
+        const resultado = await membresiaServices.quitarDeOrganizacion(organizacion, id_usuario, req.user._id)
+        if (resultado.status !== 200) {
+            return res.status(resultado.status).json({ message: resultado.message })
+        }
+
+        registrarActividad({
+            contenedor: { id_organizacion: id },
+            id_usuario: req.user._id,
+            accion: ACCIONES.USUARIO_QUITADO,
+            detalle: { id_usuario_quitado: id_usuario },
+        })
+        res.status(200).json({
+            message: 'Usuario quitado de la organización.',
+            asignaturasTransferidas: resultado.asignaturasTransferidas,
+            cuentaDesactivada: resultado.cuentaDesactivada,
+        })
+    } catch (error) {
+        console.error('Error al quitar el usuario de la organización:', error)
+        res.status(500).json({ message: 'No se pudo quitar el usuario.' })
     }
 })
 

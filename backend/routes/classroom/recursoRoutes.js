@@ -72,10 +72,15 @@ const motivoSinEdicion = async (contenedor, userId, mensajeSinPermiso) => {
     if (contenedor.id_tarea) {
         return tareaServices.motivoSinEdicionEntrega(contenedor, userId)
     }
-    const puede = contenedor.id_organizacion
-        ? await orgServices.findAdminInOrg(contenedor.id_organizacion, userId)
-        : await asignServices.findDocenteInAsign(contenedor.id_asignatura, userId)
-    return puede ? null : { status: 403, message: mensajeSinPermiso }
+    if (contenedor.id_organizacion) {
+        return await orgServices.findAdminInOrg(contenedor.id_organizacion, userId)
+            ? null
+            : { status: 403, message: mensajeSinPermiso }
+    }
+    if (!await asignServices.findDocenteInAsign(contenedor.id_asignatura, userId)) {
+        return { status: 403, message: mensajeSinPermiso }
+    }
+    return asignServices.motivoAsignaturaInactiva(contenedor.id_asignatura)
 }
 
 // los archivos de entregas no se registran uno a uno; se registra el envío de la entrega
@@ -245,35 +250,6 @@ router.delete('/api/recurso/:id', authenticate, async (req, res) => {
     } catch (error) {
         console.error('Error al eliminar el recurso:', error)
         res.status(500).json({ message: 'No se pudo eliminar el recurso.' })
-    }
-})
-
-router.get('/api/recurso/:id', authenticate, async (req, res) => {
-    try {
-        const user = req.user || await getUserFromToken(req.headers.authorization.split(' ')[1])
-        const { id } = req.params
-
-        const archiv = await recursoServices.findRecursoById(id)
-        if (!archiv) {
-            return res.status(404).json({ message: 'Recurso no encontrado.' })
-        }
-
-        if (!await puedeVerContenedor(recursoServices.getContenedor(archiv), user._id)) {
-            return res.status(403).json({ message: 'No tienes permisos para ver este recurso.' })
-        }
-
-        let recursoDescifrado = null
-        if (archiv.recurso) {
-            recursoDescifrado = await recursoServices.descifrarRecurso(archiv.recurso, archiv.id_usuario)
-        }
-
-        res.status(200).json({
-            ...archiv,
-            recurso: recursoDescifrado,
-        })
-    } catch (error) {
-        console.error('Error al obtener el recurso:', error)
-        res.status(500).json({ message: 'No se pudo obtener el recurso.' })
     }
 })
 

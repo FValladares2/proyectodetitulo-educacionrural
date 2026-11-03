@@ -169,7 +169,13 @@ const NewAsignModal = ({ visible, onClose, onSuccess }) => {
   }
 
   return (
-    <CModal visible={visible} onClose={handleCloseModal} alignment="center" backdrop="static">
+    <CModal
+      visible={visible}
+      onClose={handleCloseModal}
+      alignment="center"
+      backdrop="static"
+      fullscreen="sm"
+    >
       <CModalHeader closeButton>
         <CModalTitle className="fw-semibold">Nueva Asignatura</CModalTitle>
       </CModalHeader>

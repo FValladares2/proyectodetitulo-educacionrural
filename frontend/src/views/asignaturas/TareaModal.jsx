@@ -87,7 +87,7 @@ const EntregaEstudiante = ({ tarea, onCambio }) => {
     )
   }
 
-  const { entrega, archivos, puedeEditarArchivos, estado } = mia
+  const { entrega, archivos, puedeEditarArchivos, estado, asignaturaInactiva } = mia
   const tieneNota = entrega && (entrega.calificacion !== null || entrega.comentario)
 
   return (
@@ -159,7 +159,11 @@ const EntregaEstudiante = ({ tarea, onCambio }) => {
         </CListGroup>
       )}
 
-      {estado === 'abierta' ? (
+      {asignaturaInactiva ? (
+        <p className="text-body-secondary small mb-0">
+          La asignatura está inactiva: puedes ver tu entrega, pero no enviarla ni modificarla.
+        </p>
+      ) : estado === 'abierta' ? (
         <div className="d-flex flex-wrap gap-2 align-items-center">
           {puedeEditarArchivos && (
             <>
@@ -224,7 +228,7 @@ EntregaEstudiante.propTypes = {
 
 // --- vista docente: resumen, editar, eliminar y acceso a la revisión ---
 
-const GestionDocente = ({ tarea, resumen, idAsignatura, onEditar, onEliminada }) => {
+const GestionDocente = ({ tarea, resumen, idAsignatura, soloLectura, onEditar, onEliminada }) => {
   const navigate = useNavigate()
   const [confirmando, setConfirmando] = useState(false)
   const [error, setError] = useState('')
@@ -261,10 +265,13 @@ const GestionDocente = ({ tarea, resumen, idAsignatura, onEditar, onEliminada })
         >
           Revisar entregas
         </CButton>
-        <CButton color="secondary" variant="outline" onClick={() => onEditar(tarea)}>
-          Editar
-        </CButton>
-        {!confirmando && (
+        {/* en una asignatura inactiva se puede revisar y calificar, pero no editar ni eliminar */}
+        {!soloLectura && (
+          <CButton color="secondary" variant="outline" onClick={() => onEditar(tarea)}>
+            Editar
+          </CButton>
+        )}
+        {!soloLectura && !confirmando && (
           <CButton color="danger" variant="ghost" onClick={() => setConfirmando(true)}>
             Eliminar
           </CButton>
@@ -303,6 +310,7 @@ GestionDocente.propTypes = {
   tarea: PropTypes.object.isRequired,
   resumen: PropTypes.object,
   idAsignatura: PropTypes.string.isRequired,
+  soloLectura: PropTypes.bool,
   onEditar: PropTypes.func.isRequired,
   onEliminada: PropTypes.func.isRequired,
 }
@@ -313,6 +321,7 @@ const ContenidoTarea = ({
   tareaId,
   idAsignatura,
   esDocente,
+  soloLectura,
   resumen,
   onCambio,
   onEditar,
@@ -382,6 +391,7 @@ const ContenidoTarea = ({
             tarea={tarea}
             resumen={resumen}
             idAsignatura={idAsignatura}
+            soloLectura={soloLectura}
             onEditar={onEditar}
             onEliminada={() => {
               onCambio()
@@ -400,6 +410,7 @@ ContenidoTarea.propTypes = {
   tareaId: PropTypes.string.isRequired,
   idAsignatura: PropTypes.string.isRequired,
   esDocente: PropTypes.bool.isRequired,
+  soloLectura: PropTypes.bool,
   resumen: PropTypes.object,
   onCambio: PropTypes.func.isRequired,
   onEditar: PropTypes.func.isRequired,
@@ -413,14 +424,31 @@ ContenidoTarea.propTypes = {
  * `resumen` es la tarea tal como viene en la lista (cantidad de entregas o enviada_en).
  * Editar se delega a la página (onEditar) para no abrir un modal dentro de otro.
  */
-const TareaModal = ({ tareaId, onClose, idAsignatura, esDocente, resumen, onCambio, onEditar }) => (
-  <CModal visible={Boolean(tareaId)} onClose={onClose} size="lg" alignment="center" scrollable>
+const TareaModal = ({
+  tareaId,
+  onClose,
+  idAsignatura,
+  esDocente,
+  soloLectura,
+  resumen,
+  onCambio,
+  onEditar,
+}) => (
+  <CModal
+    visible={Boolean(tareaId)}
+    onClose={onClose}
+    size="lg"
+    alignment="center"
+    scrollable
+    fullscreen="sm"
+  >
     {tareaId && (
       <ContenidoTarea
         key={tareaId}
         tareaId={tareaId}
         idAsignatura={idAsignatura}
         esDocente={esDocente}
+        soloLectura={soloLectura}
         resumen={resumen}
         onCambio={onCambio}
         onEditar={onEditar}
@@ -436,6 +464,8 @@ TareaModal.propTypes = {
   onClose: PropTypes.func.isRequired,
   idAsignatura: PropTypes.string.isRequired,
   esDocente: PropTypes.bool.isRequired,
+  /** Asignatura inactiva: los docentes pueden revisar, pero no editar ni eliminar */
+  soloLectura: PropTypes.bool,
   resumen: PropTypes.object,
   /** Se llama cuando cambia algo que afecta a la lista (envío, retiro, eliminación) */
   onCambio: PropTypes.func.isRequired,

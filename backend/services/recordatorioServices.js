@@ -30,9 +30,10 @@ const revisarTareasPorCerrar = async (ahora = new Date()) => {
 
         const asignatura = await collections.asignaturas.findOne(
             { _id: tarea.id_asignatura },
-            { projection: { nombre: 1, usuarios: 1, docentes: 1 } }
+            { projection: { nombre: 1, usuarios: 1, docentes: 1, activo: 1 } }
         )
-        if (!asignatura) continue
+        // en una asignatura inactiva no se puede entregar: no tiene sentido recordarlo
+        if (!asignatura || asignatura.activo === false) continue
 
         const entregaron = await collections.entregas.distinct('id_usuario', { id_tarea: tarea._id })
         const yaEntregaron = new Set(entregaron.map(String))

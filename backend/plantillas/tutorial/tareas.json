@@ -1,0 +1,7 @@
+{
+  "ejemplo": {
+    "titulo": "Tarea de ejemplo",
+    "descripcion": "Esta es una tarea de ejemplo. Los estudiantes de la asignatura pueden subir uno o más archivos y presionar **Enviar entrega**; mientras la tarea esté abierta, pueden retirarla para corregirla.\n\nComo profesor, abre **Revisar entregas** para descargar las respuestas, calificarlas y dejar un comentario a cada estudiante.",
+    "dias_abierta": 30
+  }
+}

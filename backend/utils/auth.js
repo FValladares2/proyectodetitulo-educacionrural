@@ -1,5 +1,5 @@
 const crypto = require('crypto')
-const { findUserById } = require('../services/userServices')
+const { findUserById, registrarConexion } = require('../services/userServices')
 const { ObjectId } = require('../config/mongo')
 
 /**
@@ -84,14 +84,20 @@ const verificarToken = (token) => {
 }
 
 /**
- * Usuario dueño de un token válido, o null si el token no es válido, venció o el usuario ya
- * no existe.
+ * Usuario dueño de un token válido, o null si el token no es válido, venció, el usuario ya
+ * no existe, su cuenta está desactivada (sin organizaciones) o cambió la contraseña después.
  */
 const getUserFromToken = async (token) => {
   try {
     const contenido = verificarToken(token)
     if (!contenido) return null
-    return await findUserById(contenido.sub)
+    const user = await findUserById(contenido.sub)
+    if (!user || user.desactivado_en) return null
+    // cambiar la contraseña cierra las sesiones abiertas antes del cambio
+    if (user.sesiones_validas_desde && contenido.iat * 1000 < new Date(user.sesiones_validas_desde).getTime()) {
+      return null
+    }
+    return user
   } catch (error) {
     console.error('Error al obtener usuario del token:', error)
     return null
@@ -112,6 +118,8 @@ const authenticate = async (req, res, next) => {
   }
 
   req.user = user
+  // sin await: un fallo al registrar la conexión no debe bloquear la solicitud
+  registrarConexion(user).catch((error) => console.error('No se pudo registrar la conexión:', error))
   next()
 }
 

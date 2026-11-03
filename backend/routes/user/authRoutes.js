@@ -1,8 +1,9 @@
 const express = require('express')
 const { createToken } = require('../../utils/auth')
-const { findUserByUsernameOrEmail, findUserByCredentials, insertUser, hashPassword, setUserMainOrg } = require('../../services/userServices')
+const { findUserByEmail, findUserByCredentials, insertUser, hashPassword, setUserMainOrg } = require('../../services/userServices')
 const orgServices = require('../../services/orgServices')
 const { definirContrasenaConInvitacion } = require('../../services/invitacionServices')
+const { crearAsignaturaTutorial } = require('../../services/tutorialServices')
 const crypto = require('crypto')
 const router = express.Router()
 
@@ -14,18 +15,17 @@ router.post('/api/auth/register', async (req, res) => {
   }
 
   try {
-    const existingUser = await findUserByUsernameOrEmail(nombre) || await findUserByUsernameOrEmail(correo)
-    
-    if (existingUser) {
-      return res.status(409).json({ message: 'Nombre o correo ya existe.' })
+    // solo el correo identifica la cuenta; los nombres pueden repetirse
+    if (await findUserByEmail(correo)) {
+      return res.status(409).json({ message: 'Ya existe una cuenta con ese correo.' })
     }
 
     const hash_contrasena = await hashPassword(contrasena)
     const sal_cifrado = crypto.randomBytes(16).toString('base64')
 
     const newUser = {
-      nombre,
-      correo,
+      nombre: String(nombre).trim(),
+      correo: String(correo).trim().toLowerCase(),
       hash_contrasena,
       sal_cifrado,
       creado_en: new Date(),
@@ -43,6 +43,8 @@ router.post('/api/auth/register', async (req, res) => {
         creado_en: new Date(),
       })
       await setUserMainOrg(result.insertedId, orgResult.insertedId)
+      // asignatura de bienvenida a partir de plantillas/asignatura-tutorial.md
+      await crearAsignaturaTutorial(result.insertedId, orgResult.insertedId)
       
       res.status(201).json({ message: 'Usuario creado correctamente.', sal_cifrado })
     }
@@ -53,17 +55,24 @@ router.post('/api/auth/register', async (req, res) => {
 })
 
 router.post('/api/auth/login', async (req, res) => {
-  const { nombre, correo, contrasena } = req.body
-  const credentials = nombre || correo
+  const { correo, contrasena } = req.body
 
-  if (!credentials || !contrasena) {
-    return res.status(400).json({ message: 'Nombre/correo y contraseña son requeridos.' })
+  if (typeof correo !== 'string' || !correo.trim() || !contrasena) {
+    return res.status(400).json({ message: 'Correo y contraseña son requeridos.' })
   }
 
   try {
-    const user = await findUserByCredentials(credentials, contrasena)
+    const user = await findUserByCredentials(correo, contrasena)
     if (!user) {
-      return res.status(401).json({ message: 'Nombre de usuario/correo o contraseña inválidos.' })
+      return res.status(401).json({ message: 'Correo o contraseña inválidos.' })
+    }
+    // se comprueba después de la contraseña para no revelar el estado de cuentas ajenas
+    if (user.desactivado_en) {
+      return res.status(403).json({
+        codigo: 'cuenta_desactivada',
+        message:
+          'Esta cuenta ha sido desactivada por no pertenecer a ninguna organización. Crea una nueva cuenta de administrador o pídele a tu organización que añada tu cuenta anterior para reactivarla.',
+      })
     }
 
     const token = createToken(user)

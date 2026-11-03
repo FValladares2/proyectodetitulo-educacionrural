@@ -26,7 +26,9 @@ const Archivos = () => {
         return
       }
       try {
-        const lista = await fetchAsignaturasUsuario(orgId, controller.signal)
+        const lista = await fetchAsignaturasUsuario(orgId, controller.signal, 100, {
+          incluirInactivas: true,
+        })
         setAsignaturas(lista)
         setError('')
       } catch (err) {

@@ -67,6 +67,10 @@ router.post('/api/tarea', authenticate, async (req, res) => {
         if (!await asignServices.findDocenteInAsign(id_asignatura, req.user._id)) {
             return res.status(403).json({ message: 'Solo los docentes de la asignatura pueden crear tareas.' })
         }
+        const inactiva = await asignServices.motivoAsignaturaInactiva(id_asignatura)
+        if (inactiva) {
+            return res.status(inactiva.status).json({ message: inactiva.message })
+        }
 
         const validacion = tareaServices.validarDatosTarea(req.body)
         if (validacion.message) {
@@ -155,6 +159,10 @@ router.put('/api/tarea/:id', authenticate, async (req, res) => {
         if (!await esDocenteDe(tarea, req.user._id)) {
             return res.status(403).json({ message: 'Solo los docentes de la asignatura pueden editar tareas.' })
         }
+        const inactiva = await asignServices.motivoAsignaturaInactiva(tarea.id_asignatura)
+        if (inactiva) {
+            return res.status(inactiva.status).json({ message: inactiva.message })
+        }
 
         const validacion = tareaServices.validarDatosTarea(req.body, tarea)
         if (validacion.message) {
@@ -183,6 +191,10 @@ router.delete('/api/tarea/:id', authenticate, async (req, res) => {
         if (!await esDocenteDe(tarea, req.user._id)) {
             return res.status(403).json({ message: 'Solo los docentes de la asignatura pueden eliminar tareas.' })
         }
+        const inactiva = await asignServices.motivoAsignaturaInactiva(tarea.id_asignatura)
+        if (inactiva) {
+            return res.status(inactiva.status).json({ message: inactiva.message })
+        }
 
         await tareaServices.eliminarTarea(tarea._id)
         registrar(tarea, req.user._id, ACCIONES.TAREA_ELIMINADA, { titulo: tarea.titulo })
@@ -204,15 +216,18 @@ router.get('/api/tarea/:id/mi-entrega', authenticate, async (req, res) => {
             return res.status(403).json({ message: 'No tienes permisos para ver esta tarea.' })
         }
 
-        const [entrega, archivos] = await Promise.all([
+        const [entrega, archivos, inactiva] = await Promise.all([
             tareaServices.findEntrega(tarea._id, req.user._id),
             recursoServices.findRecursosByTarea(tarea._id, req.user._id),
+            asignServices.motivoAsignaturaInactiva(tarea.id_asignatura),
         ])
         res.status(200).json({
             estado: tareaServices.estadoTarea(tarea),
             entrega,
             archivos,
-            puedeEditarArchivos: !entrega && tareaServices.estadoTarea(tarea) === 'abierta',
+            // una asignatura inactiva es de solo lectura: no se puede entregar ni retirar
+            asignaturaInactiva: Boolean(inactiva),
+            puedeEditarArchivos: !inactiva && !entrega && tareaServices.estadoTarea(tarea) === 'abierta',
         })
     } catch (error) {
         console.error('Error al obtener la entrega:', error)

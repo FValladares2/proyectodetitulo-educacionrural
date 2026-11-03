@@ -140,7 +140,8 @@ const ExploradorRecursos = ({
     authUser &&
     (asignaturaActual.docentes || []).some((d) => String(d) === String(authUser._id)),
   )
-  const puedeEditar = esDocente && !soloLectura
+  // una asignatura inactiva es de solo lectura
+  const puedeEditar = esDocente && !soloLectura && asignaturaActual?.activo !== false
 
   const actualizarRecursos = (id_asignatura, actualizar) =>
     setRecursosPorAsignatura((prev) => ({

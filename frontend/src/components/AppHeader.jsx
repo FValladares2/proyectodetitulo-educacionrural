@@ -44,19 +44,11 @@ import {
   useColorModes,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import {
-  cilContrast,
-  cilMenu,
-  cilMoon,
-  cilSun,
-  cilInfo,
-  cilEducation,
-  cilUser,
-} from '@coreui/icons'
+import { cilContrast, cilMenu, cilMoon, cilSun, cilInfo, cilEducation } from '@coreui/icons'
 
 import { AppBreadcrumb } from './index'
-import { AppHeaderDropdown } from './header/index'
 import NotificacionesHeader from './notificaciones/NotificacionesHeader'
+import UsuarioHeader from './header/UsuarioHeader'
 
 /**
  * AppHeader functional component
@@ -69,104 +61,130 @@ import NotificacionesHeader from './notificaciones/NotificacionesHeader'
  *
  * @returns {React.ReactElement} Header component with navigation and controls
  */
+// en pantallas bajas (teléfonos en horizontal) solo la barra superior queda fija; las migas
+// se desplazan con la página para dejar el alto al contenido
+const PANTALLA_BAJA = '(max-height: 500px)'
+
 const AppHeader = () => {
   const headerRef = useRef()
+  const migasRef = useRef()
   const { colorMode, setColorMode } = useColorModes('coreui-free-react-admin-template-theme')
   const [searchVisible, setSearchVisible] = useState(false)
 
   const dispatch = useDispatch()
   const sidebarShow = useSelector((state) => state.sidebarShow)
 
+  // publica el alto de lo que queda fijo arriba (--app-breadcrumb-offset), del que dependen la
+  // barra de la asignatura, la barra del editor y el desplazamiento a los títulos
   useEffect(() => {
+    const raiz = document.documentElement
+    const pantallaBaja = window.matchMedia(PANTALLA_BAJA)
+
+    const actualizar = () => {
+      const barra = headerRef.current?.offsetHeight ?? 0
+      const migas = pantallaBaja.matches ? 0 : (migasRef.current?.offsetHeight ?? 0)
+      raiz.style.setProperty('--app-topbar-alto', `${barra}px`)
+      raiz.style.setProperty('--app-breadcrumb-offset', `${barra + migas}px`)
+    }
+    // la sombra va bajo el último elemento fijo
     const handleScroll = () => {
-      headerRef.current &&
-        headerRef.current.classList.toggle('shadow-sm', document.documentElement.scrollTop > 0)
+      const desplazado = raiz.scrollTop > 0
+      headerRef.current?.classList.toggle('shadow-sm', desplazado && pantallaBaja.matches)
+      migasRef.current?.classList.toggle('shadow-sm', desplazado && !pantallaBaja.matches)
+    }
+    const alCambiar = () => {
+      actualizar()
+      handleScroll()
     }
 
+    const observador = new ResizeObserver(actualizar)
+    if (headerRef.current) observador.observe(headerRef.current)
+    if (migasRef.current) observador.observe(migasRef.current)
+    pantallaBaja.addEventListener('change', alCambiar)
     document.addEventListener('scroll', handleScroll)
-    return () => document.removeEventListener('scroll', handleScroll)
+    alCambiar()
+    return () => {
+      observador.disconnect()
+      pantallaBaja.removeEventListener('change', alCambiar)
+      document.removeEventListener('scroll', handleScroll)
+    }
   }, [])
 
   return (
-    <CHeader position="sticky" className="mb-4 p-0" ref={headerRef}>
-      <CContainer className="border-bottom px-4" fluid>
-        <CHeaderToggler
-          onClick={() => dispatch({ type: 'set', sidebarShow: !sidebarShow })}
-          style={{ marginInlineStart: '-14px' }}
-        >
-          <CIcon icon={cilMenu} size="lg" />
-        </CHeaderToggler>
+    <>
+      <CHeader position="sticky" className="p-0" ref={headerRef}>
+        <CContainer className="px-2 px-sm-4" fluid>
+          <CHeaderToggler
+            onClick={() => dispatch({ type: 'set', sidebarShow: !sidebarShow })}
+            style={{ marginInlineStart: '-14px' }}
+          >
+            <CIcon icon={cilMenu} size="lg" />
+          </CHeaderToggler>
 
-        <CHeaderNav className="ms-auto">
-          <NotificacionesHeader />
-          <CNavItem>
-            <CNavLink href="#">
-              <CIcon icon={cilInfo} size="lg" />
-            </CNavLink>
-          </CNavItem>
-          <CNavItem>
-            <CNavLink href="#">
-              <CIcon icon={cilEducation} size="lg" />
-            </CNavLink>
-          </CNavItem>
-          <CNavItem>
-            <CNavLink href="#">
-              <CIcon icon={cilUser} size="lg" />
-            </CNavLink>
-          </CNavItem>
-        </CHeaderNav>
+          <CHeaderNav className="ms-auto">
+            <NotificacionesHeader />
+            <CNavItem>
+              <CNavLink href="#/organizacion">
+                <CIcon icon={cilEducation} size="lg" />
+              </CNavLink>
+            </CNavItem>
+            <UsuarioHeader />
+          </CHeaderNav>
 
-        <CHeaderNav>
-          <li className="nav-item py-1">
-            <div className="vr h-100 mx-2 text-body text-opacity-75"></div>
-          </li>
-          <CDropdown variant="nav-item" placement="bottom-end">
-            <CDropdownToggle caret={false}>
-              {colorMode === 'dark' ? (
-                <CIcon icon={cilMoon} size="lg" />
-              ) : colorMode === 'auto' ? (
-                <CIcon icon={cilContrast} size="lg" />
-              ) : (
-                <CIcon icon={cilSun} size="lg" />
-              )}
-            </CDropdownToggle>
-            <CDropdownMenu>
-              <CDropdownItem
-                active={colorMode === 'light'}
-                className="d-flex align-items-center"
-                as="button"
-                type="button"
-                onClick={() => setColorMode('light')}
-              >
-                <CIcon className="me-2" icon={cilSun} size="lg" /> Claro
-              </CDropdownItem>
-              <CDropdownItem
-                active={colorMode === 'dark'}
-                className="d-flex align-items-center"
-                as="button"
-                type="button"
-                onClick={() => setColorMode('dark')}
-              >
-                <CIcon className="me-2" icon={cilMoon} size="lg" /> Oscuro
-              </CDropdownItem>
-              <CDropdownItem
-                active={colorMode === 'auto'}
-                className="d-flex align-items-center"
-                as="button"
-                type="button"
-                onClick={() => setColorMode('auto')}
-              >
-                <CIcon className="me-2" icon={cilContrast} size="lg" /> Automático
-              </CDropdownItem>
-            </CDropdownMenu>
-          </CDropdown>
-        </CHeaderNav>
-      </CContainer>
-
-      <CContainer className="px-4" fluid>
-        <AppBreadcrumb />
-      </CContainer>
-    </CHeader>
+          <CHeaderNav>
+            <li className="nav-item py-1">
+              <div className="vr h-100 mx-2 text-body text-opacity-75"></div>
+            </li>
+            <CDropdown variant="nav-item" placement="bottom-end">
+              <CDropdownToggle caret={false}>
+                {colorMode === 'dark' ? (
+                  <CIcon icon={cilMoon} size="lg" />
+                ) : colorMode === 'auto' ? (
+                  <CIcon icon={cilContrast} size="lg" />
+                ) : (
+                  <CIcon icon={cilSun} size="lg" />
+                )}
+              </CDropdownToggle>
+              <CDropdownMenu>
+                <CDropdownItem
+                  active={colorMode === 'light'}
+                  className="d-flex align-items-center"
+                  as="button"
+                  type="button"
+                  onClick={() => setColorMode('light')}
+                >
+                  <CIcon className="me-2" icon={cilSun} size="lg" /> Claro
+                </CDropdownItem>
+                <CDropdownItem
+                  active={colorMode === 'dark'}
+                  className="d-flex align-items-center"
+                  as="button"
+                  type="button"
+                  onClick={() => setColorMode('dark')}
+                >
+                  <CIcon className="me-2" icon={cilMoon} size="lg" /> Oscuro
+                </CDropdownItem>
+                <CDropdownItem
+                  active={colorMode === 'auto'}
+                  className="d-flex align-items-center"
+                  as="button"
+                  type="button"
+                  onClick={() => setColorMode('auto')}
+                >
+                  <CIcon className="me-2" icon={cilContrast} size="lg" /> Automático
+                </CDropdownItem>
+              </CDropdownMenu>
+            </CDropdown>
+          </CHeaderNav>
+        </CContainer>
+      </CHeader>
+      {/* fuera del encabezado para que pueda dejar de ser fija sin arrastrar la barra superior */}
+      <div className="app-migas mb-4" ref={migasRef}>
+        <CContainer className="px-2 px-sm-4" fluid>
+          <AppBreadcrumb />
+        </CContainer>
+      </div>
+    </>
   )
 }
 

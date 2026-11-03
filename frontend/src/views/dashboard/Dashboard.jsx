@@ -16,6 +16,7 @@ import { cilBook, cilPlus } from '@coreui/icons'
 import { fetchAsignaturas } from 'src/services/asignServices'
 import { getAuthToken, getAuthUser } from 'src/services/authServices'
 import { getInitialOrgId, getOrgsWithUser } from 'src/services/orgServices'
+import useRolOrganizacion, { puedeCrearAsignaturas } from 'src/hooks/useRolOrganizacion'
 import BannerRecurso from 'src/components/recursos/BannerRecurso'
 
 const Dashboard = () => {
@@ -36,7 +37,7 @@ const Dashboard = () => {
   // Filter & pagination states
   const search = ''
   const soloDocente = false
-  const activoFilter = 'all' // 'all', 'true', 'false'
+  const activoFilter = 'true' // 'all', 'true', 'false'
   const sortOption = 'acceso' // 'nombre_asc', 'nombre_desc', 'acceso', 'creado'
   const [page, setPage] = useState(1)
   const limit = 12
@@ -46,6 +47,7 @@ const Dashboard = () => {
 
   // Current authenticated user
   const authUser = useMemo(() => getAuthUser(), [])
+  const puedeCrear = puedeCrearAsignaturas(useRolOrganizacion(orgId || getInitialOrgId()))
 
   // Resolve user organization if not found in storage
   useEffect(() => {
@@ -140,17 +142,19 @@ const Dashboard = () => {
                   <p className="text-body-secondary small mb-3">
                     Aún no perteneces a ninguna asignatura en esta organización.
                   </p>
-                  <div className="d-flex justify-content-center gap-2">
-                    <CButton color="primary" size="sm" onClick={() => navigate('/asignaturas')}>
-                      <CIcon icon={cilPlus} className="me-1" />
-                      Crear la primera
-                    </CButton>
-                  </div>
+                  {puedeCrear && (
+                    <div className="d-flex justify-content-center gap-2">
+                      <CButton color="primary" size="sm" onClick={() => navigate('/asignaturas')}>
+                        <CIcon icon={cilPlus} className="me-1" />
+                        Crear la primera
+                      </CButton>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <CRow>
                   {asignaturas.map((asignatura) => (
-                    <CCol key={asignatura._id} xs={6} md={4} lg={3} className="mb-4">
+                    <CCol key={asignatura._id} xs={12} md={4} lg={3} className="mb-4">
                       <CCard
                         style={{ cursor: 'pointer' }}
                         className="mb-4 shadow-sm border-0 h-100"

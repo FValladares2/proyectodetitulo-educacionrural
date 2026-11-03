@@ -187,7 +187,14 @@ const AddUserToAsignModal = ({
   }
 
   return (
-    <CModal visible={visible} onClose={handleClose} alignment="center" backdrop="static" size="lg">
+    <CModal
+      visible={visible}
+      onClose={handleClose}
+      alignment="center"
+      backdrop="static"
+      size="lg"
+      fullscreen="sm"
+    >
       <CModalHeader closeButton>
         <CModalTitle className="fw-semibold">Agregar integrantes a la asignatura</CModalTitle>
       </CModalHeader>

@@ -8,10 +8,13 @@ const accesoServices = require('../../services/accesoServices')
 const { ACCIONES, registrarActividad } = require('../../services/actividadServices')
 const { notificar } = require('../../services/notificacionServices')
 const { authenticate, getUserFromToken } = require('../../utils/auth')
+const membresiaServices = require('../../services/membresiaServices')
 const { ObjectId } = require('../../config/mongo')
 
+const MAX_NOMBRE_ASIGNATURA = 120
+
+// la crean los profesores de la organización (los administradores también lo son)
 router.post('/api/asign/create', authenticate, async (req, res) => {
-    // solo puede crear una clase un usuario que sea administrador de la organización
     try {
         const user = await getUserFromToken(req.headers.authorization.split(' ')[1])
         if (!ObjectId.isValid(req.body.id_organizacion)) {
@@ -28,10 +31,10 @@ router.post('/api/asign/create', authenticate, async (req, res) => {
             return res.status(403).json({ message: 'No tienes permisos para crear una clase en esta organización.' })
         }
 
-        const { nombre, id_organizacion } = req.body
-
-        if (!nombre || !id_organizacion) {
-            return res.status(400).json({ message: 'Faltan campos obligatorios.' })
+        const { id_organizacion } = req.body
+        const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim().replace(/\s+/g, ' ') : ''
+        if (!nombre || nombre.length > MAX_NOMBRE_ASIGNATURA) {
+            return res.status(400).json({ message: `El nombre es obligatorio y debe tener hasta ${MAX_NOMBRE_ASIGNATURA} caracteres.` })
         }
 
         const classRoom = await classServices.createClass({
@@ -54,8 +57,9 @@ router.post('/api/asign/create', authenticate, async (req, res) => {
             const classId = classRoom.insertedId || classRoom._id
             const agregados = []
             for (const correo of req.body.correos) {
-                const usuario = await userServices.findUserByUsernameOrEmail(correo)
-                if (usuario) {  
+                const usuario = await userServices.findUserByEmail(correo)
+                // solo integrantes de la organización, igual que al agregar desde Integrantes
+                if (usuario && await orgServices.findUserInOrg(id_organizacion, usuario._id)) {
                     await classServices.addUsuarioToAsign(classId, usuario._id)
                     agregados.push(usuario._id)
                 }
@@ -79,17 +83,22 @@ router.post('/api/asign/create', authenticate, async (req, res) => {
 router.get('/api/asign/user', authenticate, async (req, res) => {
     try {
         const user = await getUserFromToken(req.headers.authorization.split(' ')[1])
-        const { id_organizacion, soloDocente, activo, page, limit, search, sortBy, order } = req.query
-        if (!id_organizacion) {
+        const { id_organizacion, soloDocente, todas, activo, page, limit, search, sortBy, order } = req.query
+        if (!id_organizacion || !ObjectId.isValid(id_organizacion)) {
             return res.status(400).json({ message: 'Faltan campos obligatorios.' })
         }
         if (!await orgServices.findUserInOrg(id_organizacion, user._id)) {
             return res.status(403).json({ message: 'No tienes permisos para ver clases en esta organización.' })
         }
+        const verTodas = todas === 'true'
+        if (verTodas && !await orgServices.findAdminInOrg(id_organizacion, user._id)) {
+            return res.status(403).json({ message: 'Solo un administrador puede ver todas las asignaturas.' })
+        }
         const result = await classServices.getFilteredClasses({
             userId: user._id,
             id_organizacion,
             soloDocente: soloDocente === 'true',
+            todas: verTodas,
             activo: activo !== undefined ? activo : true,
             page: parseInt(page, 10) || 1,
             limit: parseInt(limit, 10) || 10,
@@ -148,6 +157,10 @@ router.put('/api/asign/:id', authenticate, async (req, res) => {
             console.log('usuario ', user._id, ' no se encuentra en la asignatura ', id)
             return res.status(403).json({ message: 'No tienes permisos para editar esta asignatura.' })
         }
+        const inactiva = await classServices.motivoAsignaturaInactiva(id)
+        if (inactiva) {
+            return res.status(inactiva.status).json({ message: inactiva.message })
+        }
 
         if (typeof req.body.formato_markup !== 'string') {
             return res.status(400).json({ message: 'El contenido debe estar en formato Markdown.' })
@@ -178,6 +191,10 @@ router.put('/api/asign/:id/img', authenticate, async (req, res) => {
         if (!await classServices.findDocenteInAsign(id, req.user._id)) {
             return res.status(403).json({ message: 'No tienes permisos para editar esta asignatura.' })
         }
+        const inactiva = await classServices.motivoAsignaturaInactiva(id)
+        if (inactiva) {
+            return res.status(inactiva.status).json({ message: inactiva.message })
+        }
 
         const validacion = await recursoServices.validarImagenBanner(req.body.img, { id_asignatura: id })
         if (validacion.status) {
@@ -202,37 +219,111 @@ router.put('/api/asign/:id/img', authenticate, async (req, res) => {
     }
 })
 
-router.put('/api/asign/addUser', authenticate, async (req, res) => {
-    try {
-        const user = await getUserFromToken(req.headers.authorization.split(' ')[1])
-        const { id_asignatura, id_usuario } = req.body
+// docentes de la asignatura y administradores de su organización
+const puedeAdministrarIntegrantes = async (asignatura, id_usuario) =>
+    (asignatura.docentes || []).some((d) => String(d) === String(id_usuario)) || Boolean(
+        asignatura.id_organizacion && await orgServices.findAdminInOrg(asignatura.id_organizacion, id_usuario)
+    )
 
-        const asignatura = await classServices.getClassById(id_asignatura)
+// nombre y estado; la ven y editan los docentes y los administradores de la organización
+router.get('/api/asign/:id/config', authenticate, async (req, res) => {
+    try {
+        if (!ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ message: 'Parámetros inválidos.' })
+        }
+        const asignatura = await classServices.getClassById(req.params.id)
         if (!asignatura) {
             return res.status(404).json({ message: 'Asignatura no encontrada.' })
         }
-
-        if (!id_asignatura || !id_usuario) {
-            return res.status(400).json({ message: 'Faltan campos obligatorios.' })
+        if (!(await puedeAdministrarIntegrantes(asignatura, req.user._id))) {
+            return res.status(403).json({ message: 'No tienes permisos para configurar esta asignatura.' })
         }
-        if (!await classServices.findDocenteInAsign(id_asignatura, user._id)) {
-            return res.status(403).json({ message: 'No tienes permisos para agregar usuario a esta asignatura.' })
-        }
-        if (await classServices.findUsuarioInAsign(id_asignatura, id_usuario)) {
-            return res.status(403).json({ message: 'El usuario ya está en la asignatura.' })
-        }
-
-        await classServices.addUsuarioToAsign(id_asignatura, id_usuario)
-        registrarActividad({
-            contenedor: { id_asignatura },
-            id_usuario: user._id,
-            accion: ACCIONES.USUARIOS_AGREGADOS,
-            detalle: { cantidad: 1 },
-        })
-        res.status(200).json({ message: 'Usuario agregado a la asignatura exitosamente.' })
+        res.status(200).json({ _id: asignatura._id, nombre: asignatura.nombre, activo: asignatura.activo !== false })
     } catch (error) {
-        console.error('Error al agregar usuario a la asignatura:', error)
-        res.status(500).json({ message: 'No se pudo agregar usuario a la asignatura.' })
+        console.error('Error al obtener la configuración de la asignatura:', error)
+        res.status(500).json({ message: 'No se pudo obtener la configuración.' })
+    }
+})
+
+router.put('/api/asign/:id/config', authenticate, async (req, res) => {
+    try {
+        if (!ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ message: 'Parámetros inválidos.' })
+        }
+        const asignatura = await classServices.getClassById(req.params.id)
+        if (!asignatura) {
+            return res.status(404).json({ message: 'Asignatura no encontrada.' })
+        }
+        if (!(await puedeAdministrarIntegrantes(asignatura, req.user._id))) {
+            return res.status(403).json({ message: 'No tienes permisos para configurar esta asignatura.' })
+        }
+
+        const cambios = {}
+        if (req.body.nombre !== undefined) {
+            const nombre = typeof req.body.nombre === 'string' ? req.body.nombre.trim().replace(/\s+/g, ' ') : ''
+            if (!nombre || nombre.length > MAX_NOMBRE_ASIGNATURA) {
+                return res.status(400).json({ message: `El nombre es obligatorio y debe tener hasta ${MAX_NOMBRE_ASIGNATURA} caracteres.` })
+            }
+            cambios.nombre = nombre
+        }
+        if (req.body.activo !== undefined) {
+            if (typeof req.body.activo !== 'boolean') {
+                return res.status(400).json({ message: 'El estado debe ser verdadero o falso.' })
+            }
+            cambios.activo = req.body.activo
+        }
+        if (Object.keys(cambios).length === 0) {
+            return res.status(400).json({ message: 'No hay cambios que guardar.' })
+        }
+
+        await classServices.updateClass(req.params.id, { ...cambios, actualizado_en: new Date() })
+        registrarActividad({
+            contenedor: { id_asignatura: req.params.id },
+            id_usuario: req.user._id,
+            accion: ACCIONES.ASIGNATURA_CONFIGURADA,
+            detalle: cambios,
+        })
+        res.status(200).json({
+            _id: asignatura._id,
+            nombre: cambios.nombre ?? asignatura.nombre,
+            activo: cambios.activo ?? asignatura.activo !== false,
+        })
+    } catch (error) {
+        console.error('Error al guardar la configuración de la asignatura:', error)
+        res.status(500).json({ message: 'No se pudo guardar la configuración.' })
+    }
+})
+
+// quitar a un integrante (también a sí mismo); la asignatura nunca queda sin docentes
+router.delete('/api/asign/:id/users/:id_usuario', authenticate, async (req, res) => {
+    try {
+        const { id, id_usuario } = req.params
+        if (!ObjectId.isValid(id) || !ObjectId.isValid(id_usuario)) {
+            return res.status(400).json({ message: 'Parámetros inválidos.' })
+        }
+        const asignatura = await classServices.getClassById(id)
+        if (!asignatura) {
+            return res.status(404).json({ message: 'Asignatura no encontrada.' })
+        }
+        if (!(await puedeAdministrarIntegrantes(asignatura, req.user._id))) {
+            return res.status(403).json({ message: 'No tienes permisos para quitar usuarios de esta asignatura.' })
+        }
+
+        const resultado = await membresiaServices.quitarDeAsignatura(asignatura, id_usuario)
+        if (resultado.status !== 200) {
+            return res.status(resultado.status).json({ message: resultado.message })
+        }
+
+        registrarActividad({
+            contenedor: { id_asignatura: id },
+            id_usuario: req.user._id,
+            accion: ACCIONES.USUARIO_QUITADO,
+            detalle: { id_usuario_quitado: id_usuario, era_docente: resultado.era_docente },
+        })
+        res.status(200).json({ message: 'Usuario quitado de la asignatura.' })
+    } catch (error) {
+        console.error('Error al quitar el usuario de la asignatura:', error)
+        res.status(500).json({ message: 'No se pudo quitar el usuario.' })
     }
 })
 
@@ -250,21 +341,36 @@ router.get('/api/asign/:id/users', authenticate, async (req, res) => {
             return res.status(404).json({ message: 'Asignatura no encontrada.' })
         }
 
-        const isUserInAsign = await classServices.findUsuarioInAsign(id, user._id)
-        if (!isUserInAsign) {
+        // los administradores de la organización ven los integrantes aunque no participen, pero
+        // no el contenido ni las entregas: para eso deben unirse como docentes
+        const esIntegrante = Boolean(await classServices.findUsuarioInAsign(id, user._id))
+        const puedeAgregar = await puedeAdministrarIntegrantes(asignatura, user._id)
+        if (!esIntegrante && !puedeAgregar) {
             return res.status(403).json({ message: 'No tienes permisos para ver los integrantes de esta asignatura.' })
         }
 
         const docenteIds = (asignatura.docentes || []).map(d => d.toString())
-        const teachers = await userServices.getUserBatchBasicInfo(asignatura.docentes || [])
+        let teachers = await userServices.getUserBatchBasicInfo(asignatura.docentes || [])
         const alumnoIds = (asignatura.usuarios || []).filter(
             usuario => !docenteIds.includes(usuario.toString())
         )
-        const users = await userServices.getUserBatchBasicInfo(alumnoIds)
+        let users = await userServices.getUserBatchBasicInfo(alumnoIds)
+
+        // el último acceso a la asignatura solo lo ven quienes administran sus integrantes
+        if (puedeAgregar) {
+            const accesos = await accesoServices.ultimosAccesos(id)
+            const conAcceso = (u) => ({ ...u, ultimo_acceso: accesos.get(String(u._id)) ?? null })
+            teachers = (teachers || []).map(conAcceso)
+            users = (users || []).map(conAcceso)
+        }
 
         res.status(200).json({
             teachers: teachers || [],
             users: users || [],
+            puedeAgregar,
+            puedeQuitar: puedeAgregar,
+            esIntegrante,
+            nombre: asignatura.nombre,
         })
     } catch (error) {
         console.error('Error al obtener los usuarios de la asignatura:', error)
@@ -298,7 +404,7 @@ router.post('/api/asign/users/batch', authenticate, async (req, res) => {
             console.log('Procesando usuario:', item)
             let targetUserId = item._id || item.id_usuario
             if (!targetUserId && item.correo) {
-                const foundUser = await userServices.findUserByUsernameOrEmail(item.correo.trim().toLowerCase())
+                const foundUser = await userServices.findUserByEmail(item.correo.trim().toLowerCase())
                 if (foundUser) {
                     targetUserId = foundUser._id
                 }

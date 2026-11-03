@@ -23,6 +23,7 @@ jest.mock('../utils/auth', () => ({
 jest.mock('../services/asignServices', () => ({
   findDocenteInAsign: jest.fn(async (id_asignatura, id_usuario) => String(id_usuario) === String(mockDocenteId)),
   findUsuarioInAsign: jest.fn(async () => true),
+  motivoAsignaturaInactiva: jest.fn(async () => null),
 }))
 
 // el docente es administrador de la organización, el alumno solo integrante y el externo no pertenece

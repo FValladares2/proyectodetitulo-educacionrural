@@ -24,12 +24,41 @@ import {
   CTableRow,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilBook, cilPeople, cilPlus, cilReload, cilSearch } from '@coreui/icons'
+import {
+  cilBan,
+  cilBook,
+  cilCheckCircle,
+  cilEducation,
+  cilPeople,
+  cilPlus,
+  cilReload,
+  cilSearch,
+  cilShieldAlt,
+  cilUser,
+} from '@coreui/icons'
+import PropTypes from 'prop-types'
 import NewAsignModal from 'src/components/modals/newAsignModal'
 import { useNavigate } from 'react-router-dom'
 import { fetchAsignaturas } from 'src/services/asignServices'
 import { getAuthToken, getAuthUser } from 'src/services/authServices'
 import { getInitialOrgId, getOrgsWithUser } from 'src/services/orgServices'
+import useRolOrganizacion, { puedeCrearAsignaturas } from 'src/hooks/useRolOrganizacion'
+
+// en teléfonos las etiquetas se reducen a un ícono; el texto queda en el title y para lectores
+const Etiqueta = ({ color, icono, texto, className = '' }) => (
+  <CBadge color={color} shape="rounded-pill" className={className} title={texto}>
+    <CIcon icon={icono} size="sm" className="d-md-none" aria-hidden="true" />
+    <span className="d-none d-md-inline">{texto}</span>
+    <span className="visually-hidden d-md-none">{texto}</span>
+  </CBadge>
+)
+
+Etiqueta.propTypes = {
+  color: PropTypes.string.isRequired,
+  icono: PropTypes.array.isRequired,
+  texto: PropTypes.string.isRequired,
+  className: PropTypes.string,
+}
 
 const Asignaturas = () => {
   const navigate = useNavigate()
@@ -51,6 +80,10 @@ const Asignaturas = () => {
   // Filter & pagination states
   const [search, setSearch] = useState('')
   const [soloDocente, setSoloDocente] = useState(false)
+  // el filtro solo se muestra a quien es docente en alguna asignatura de la organización
+  const [docenteEnAlguna, setDocenteEnAlguna] = useState(false)
+  // solo administradores: todas las asignaturas de la organización, no solo las propias
+  const [verTodas, setVerTodas] = useState(false)
   const [activoFilter, setActivoFilter] = useState('all') // 'all', 'true', 'false'
   const [sortOption, setSortOption] = useState('nombre_asc') // 'nombre_asc', 'nombre_desc', 'acceso', 'creado'
   const [page, setPage] = useState(1)
@@ -61,6 +94,9 @@ const Asignaturas = () => {
 
   // Current authenticated user
   const authUser = useMemo(() => getAuthUser(), [])
+  const rolOrganizacion = useRolOrganizacion(orgId || getInitialOrgId())
+  const puedeCrear = puedeCrearAsignaturas(rolOrganizacion)
+  const esAdmin = rolOrganizacion === 'admin'
 
   // Resolve user organization if not found in storage
   useEffect(() => {
@@ -116,13 +152,29 @@ const Asignaturas = () => {
       setTotalPages,
       setLoading,
       setError,
+      setDocenteEnAlguna,
+      verTodas && esAdmin,
     )
 
     return () => controller.abort()
-  }, [orgId, page, limit, search, soloDocente, activoFilter, sortOption, refetchKey])
+  }, [
+    orgId,
+    page,
+    limit,
+    search,
+    soloDocente,
+    verTodas,
+    esAdmin,
+    activoFilter,
+    sortOption,
+    refetchKey,
+  ])
 
-  const irAAsignatura = (id, nombre) => {
-    navigate(`/asignaturas/${id}`, { state: { nombre } })
+  // sin participar (administrador viendo todas) solo se accede a los integrantes
+  const irAAsignatura = (id, nombre, esIntegrante) => {
+    navigate(esIntegrante ? `/asignaturas/${id}` : `/asignaturas/${id}/integrantes`, {
+      state: { nombre },
+    })
   }
 
   // Filter change handlers that reset to page 1
@@ -133,6 +185,11 @@ const Asignaturas = () => {
 
   const handleSoloDocenteChange = (e) => {
     setSoloDocente(e.target.checked)
+    setPage(1)
+  }
+
+  const handleVerTodasChange = (e) => {
+    setVerTodas(e.target.checked)
     setPage(1)
   }
 
@@ -149,6 +206,7 @@ const Asignaturas = () => {
   const handleResetFilters = () => {
     setSearch('')
     setSoloDocente(false)
+    setVerTodas(false)
     setActivoFilter('all')
     setSortOption('nombre_asc')
     setPage(1)
@@ -185,16 +243,18 @@ const Asignaturas = () => {
                 Administración de cursos digitales. Selecciona una asignatura para ver detalles.
               </p>
             </div>
-            <div>
-              <CButton
-                color="primary"
-                className="d-flex align-items-center gap-2"
-                onClick={() => setModalVisible(true)}
-              >
-                <CIcon icon={cilPlus} />
-                <span>Nueva Asignatura</span>
-              </CButton>
-            </div>
+            {puedeCrear && (
+              <div>
+                <CButton
+                  color="primary"
+                  className="d-flex align-items-center gap-2"
+                  onClick={() => setModalVisible(true)}
+                >
+                  <CIcon icon={cilPlus} />
+                  <span>Nueva Asignatura</span>
+                </CButton>
+              </div>
+            )}
           </div>
         </CCardHeader>
 
@@ -248,15 +308,27 @@ const Asignaturas = () => {
                 </CButton>
               </CCol>
 
-              {/* Solo docente check */}
-              <CCol xs={12}>
-                <CFormCheck
-                  id="soloDocenteCheck"
-                  label="Mostrar solo asignaturas donde soy Docente"
-                  checked={soloDocente}
-                  onChange={handleSoloDocenteChange}
-                />
-              </CCol>
+              {/* Solo docente check (se mantiene visible si está marcado, para poder desmarcarlo) */}
+              {(docenteEnAlguna || soloDocente) && (
+                <CCol xs={12} md="auto">
+                  <CFormCheck
+                    id="soloDocenteCheck"
+                    label="Mostrar solo asignaturas donde soy Docente"
+                    checked={soloDocente}
+                    onChange={handleSoloDocenteChange}
+                  />
+                </CCol>
+              )}
+              {esAdmin && (
+                <CCol xs={12} md="auto">
+                  <CFormCheck
+                    id="verTodasCheck"
+                    label="Incluir todas las asignaturas de la organización"
+                    checked={verTodas}
+                    onChange={handleVerTodasChange}
+                  />
+                </CCol>
+              )}
             </CRow>
           </div>
 
@@ -287,10 +359,12 @@ const Asignaturas = () => {
                     Limpiar filtros
                   </CButton>
                 ) : (
-                  <CButton color="primary" size="sm" onClick={() => setModalVisible(true)}>
-                    <CIcon icon={cilPlus} className="me-1" />
-                    Crear la primera
-                  </CButton>
+                  puedeCrear && (
+                    <CButton color="primary" size="sm" onClick={() => setModalVisible(true)}>
+                      <CIcon icon={cilPlus} className="me-1" />
+                      Crear la primera
+                    </CButton>
+                  )
                 )}
               </div>
             </div>
@@ -301,17 +375,23 @@ const Asignaturas = () => {
                   <CTableHead color="light">
                     <CTableRow>
                       <CTableHeaderCell scope="col">Nombre</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Estado</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Rol en Clase</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Participantes</CTableHeaderCell>
+                      <CTableHeaderCell scope="col"></CTableHeaderCell>
+                      <CTableHeaderCell scope="col">
+                        <span className="d-none d-md-inline">Rol en Clase</span>
+                        <span className="d-md-none">Rol</span>
+                      </CTableHeaderCell>
+                      <CTableHeaderCell scope="col">
+                        <span className="d-none d-md-inline">Participantes</span>
+                        <CIcon icon={cilPeople} className="d-md-none" title="Participantes" />
+                      </CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
                     {asignaturas.map((asign) => {
-                      const isTeacher =
-                        Array.isArray(asign.docentes) &&
-                        (asign.docentes.includes(authUser?.id) ||
-                          asign.docentes.includes(authUser?._id))
+                      const contieneUsuario = (lista) =>
+                        (lista || []).some((id) => String(id) === String(authUser?._id))
+                      const isTeacher = contieneUsuario(asign.docentes)
+                      const esIntegrante = contieneUsuario(asign.usuarios)
 
                       const userCount = Array.isArray(asign.usuarios) ? asign.usuarios.length : 0
 
@@ -323,7 +403,7 @@ const Asignaturas = () => {
                         <CTableRow
                           key={asign._id}
                           style={{ cursor: 'pointer' }}
-                          onClick={() => irAAsignatura(asign._id, asign.nombre)}
+                          onClick={() => irAAsignatura(asign._id, asign.nombre, esIntegrante)}
                         >
                           <CTableDataCell>
                             {/* Nombre */}
@@ -340,26 +420,30 @@ const Asignaturas = () => {
                           <CTableDataCell>
                             {/* Activo o no */}
                             {asign.activo !== false ? (
-                              <CBadge color="success" shape="rounded-pill">
-                                Activo
-                              </CBadge>
+                              <Etiqueta color="success" icono={cilCheckCircle} texto="Activo" />
                             ) : (
-                              <CBadge color="secondary" shape="rounded-pill">
-                                Inactivo
-                              </CBadge>
+                              <Etiqueta color="secondary" icono={cilBan} texto="Inactivo" />
                             )}
                           </CTableDataCell>
 
                           <CTableDataCell>
                             {/* Docente o Alumno */}
                             {isTeacher ? (
-                              <CBadge color="info" shape="rounded-pill">
-                                Docente
-                              </CBadge>
+                              <Etiqueta color="info" icono={cilEducation} texto="Docente" />
+                            ) : esIntegrante ? (
+                              <Etiqueta
+                                color="light"
+                                icono={cilUser}
+                                texto="Alumno / Miembro"
+                                className="text-secondary border"
+                              />
                             ) : (
-                              <CBadge color="light" className="text-secondary border">
-                                Alumno / Miembro
-                              </CBadge>
+                              <Etiqueta
+                                color="light"
+                                icono={cilShieldAlt}
+                                texto="No participas"
+                                className="text-secondary border"
+                              />
                             )}
                           </CTableDataCell>
 
@@ -367,7 +451,10 @@ const Asignaturas = () => {
                             {/* Cantidad de participantes */}
                             <div className="d-flex align-items-center gap-1 text-body-secondary small">
                               <CIcon icon={cilPeople} size="sm" />
-                              <span>{userCount} usuarios</span>
+                              <span>
+                                {userCount}
+                                <span className="d-none d-md-inline"> usuarios</span>
+                              </span>
                             </div>
                           </CTableDataCell>
                         </CTableRow>

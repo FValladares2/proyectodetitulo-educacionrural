@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
+  CAlert,
   CButton,
   CCard,
   CCardBody,
@@ -7,22 +8,22 @@ import {
   CCardFooter,
   CCol,
   CRow,
-  CTable,
-  CTableBody,
-  CTableDataCell,
-  CTableHead,
-  CTableHeaderCell,
-  CTableRow,
   CSpinner,
 } from '@coreui/react'
 import AddUserToOrgModal from 'src/components/modals/addUserToOrgModal'
+import EditarOrgModal from 'src/components/modals/EditarOrgModal'
+import CIcon from '@coreui/icons-react'
+import { cilPencil } from '@coreui/icons'
 import BannerRecurso from 'src/components/recursos/BannerRecurso'
+import TablaIntegrantes from 'src/components/integrantes/TablaIntegrantes'
+import { EVENTO_SESION_EXPIRADA } from 'src/services/apiClient'
 import { getAuthUser } from 'src/services/authServices'
 import {
   getInitialOrgId,
   getOrgById,
   getOrgsWithUser,
   getUserBatchBasicInfo,
+  quitarUsuarioDeOrg,
   updateInitialOrgId,
   updateOrgImg,
 } from '../../services/orgServices.js'
@@ -36,6 +37,9 @@ const Organizacion = () => {
   const [currentOrgId, setCurrentOrgId] = useState(getInitialOrgId)
   const [currentOrg, setCurrentOrg] = useState(null)
   const [userData, setUserData] = useState(null)
+  const [recargasUsuarios, setRecargasUsuarios] = useState(0)
+  const [avisoQuitar, setAvisoQuitar] = useState('')
+  const [editando, setEditando] = useState(false)
   const [allOrgs, setAllOrgs] = useState([])
   const authUser = useMemo(() => getAuthUser(), [])
   const esAdmin = Boolean(
@@ -69,7 +73,7 @@ const Organizacion = () => {
     }
     obtenerUsuarios()
     return () => controller.abort()
-  }, [currentOrgId, showUserTable])
+  }, [currentOrgId, showUserTable, recargasUsuarios])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -83,6 +87,46 @@ const Organizacion = () => {
     obtenerOrgs()
     return () => controller.abort()
   }, [currentOrgId])
+
+  const admins = userData?.admins || []
+  const integrantes = [
+    ...admins.map((u) => ({ ...u, rol: 'admin' })),
+    ...(userData?.teachers || []).map((u) => ({ ...u, rol: 'profesor' })),
+    ...(userData?.users || []).map((u) => ({ ...u, rol: 'alumno' })),
+  ].map((u) => ({ ...u, acceso: u.ultima_conexion ?? null }))
+
+  // la organización nunca queda sin administradores (el backend también lo valida)
+  const puedeQuitar = (integrante) => esAdmin && (integrante.rol !== 'admin' || admins.length > 1)
+
+  const describirQuitar = (integrante) =>
+    String(integrante._id) === String(authUser?._id)
+      ? `Dejarás de pertenecer a ${currentOrg?.nombre || 'esta organización'} y a todas sus asignaturas. Si no perteneces a otra organización, tu cuenta se desactivará.`
+      : `${integrante.nombre} dejará de pertenecer a la organización y a todas sus asignaturas. Si era el único docente de alguna, quedará a tu cargo. Si no pertenece a otra organización, su cuenta se desactivará hasta que alguna lo vuelva a agregar.`
+
+  const handleQuitar = async (integrante) => {
+    const resultado = await quitarUsuarioDeOrg(currentOrgId, integrante._id)
+    if (String(integrante._id) === String(authUser?._id)) {
+      // sin organizaciones la cuenta queda desactivada: se cierra la sesión
+      if (resultado?.cuentaDesactivada) {
+        window.dispatchEvent(new Event(EVENTO_SESION_EXPIRADA))
+        return
+      }
+      const otras = (await getOrgsWithUser()) || []
+      if (otras.length > 0 && (await updateInitialOrgId(otras[0]._id))) {
+        setCurrentOrgId(otras[0]._id)
+      }
+      return
+    }
+    const avisos = [`${integrante.nombre} fue quitado de la organización.`]
+    if (resultado?.asignaturasTransferidas?.length > 0) {
+      avisos.push(`Ahora eres docente de: ${resultado.asignaturasTransferidas.join(', ')}.`)
+    }
+    if (resultado?.cuentaDesactivada) {
+      avisos.push('Su cuenta quedó desactivada porque no pertenece a otra organización.')
+    }
+    setAvisoQuitar(avisos.join(' '))
+    setRecargasUsuarios((n) => n + 1)
+  }
 
   const handleShowUserTable = () => {
     setShowUserTable(!showUserTable)
@@ -114,29 +158,55 @@ const Organizacion = () => {
                 ambito="organizacion"
                 onCambiar={handleCambiarImg}
               />
-              <CCardHeader className="bg-transparent border-bottom">
-                <h4 className="mb-0 fw-semibold">
+              <CCardHeader className="bg-transparent border-bottom d-flex justify-content-between align-items-center gap-2">
+                <h4 className="mb-0 fw-semibold text-break">
                   Tu organización actual: {currentOrg?.nombre || 'organizacion'}
                 </h4>
+                {esAdmin && currentOrg && (
+                  <CButton
+                    color="primary"
+                    variant="outline"
+                    size="sm"
+                    className="flex-shrink-0"
+                    onClick={() => setEditando(true)}
+                  >
+                    <CIcon icon={cilPencil} /> Editar
+                  </CButton>
+                )}
               </CCardHeader>
               <CCardBody>
-                <p className="text-body-secondary mb-0">
-                  Descripción: {currentOrg?.descripcion || 'N/A'}
-                </p>
-                <p className="text-body-secondary mb-0">
-                  Información de contacto: {currentOrg?.informacion_contacto || 'N/A'}
-                </p>
-                <p className="text-body-secondary mb-0">
-                  Dirección: {currentOrg?.direccion || 'N/A'}
-                </p>
+                {currentOrg?.descripcion && (
+                  <p className="mb-2" style={{ whiteSpace: 'pre-line' }}>
+                    {currentOrg.descripcion}
+                  </p>
+                )}
+                {currentOrg?.direccion && (
+                  <p className="text-body-secondary mb-0">Dirección: {currentOrg.direccion}</p>
+                )}
+                {currentOrg?.informacion_contacto && (
+                  <p className="text-body-secondary mb-0">
+                    Contacto: {currentOrg.informacion_contacto}
+                  </p>
+                )}
+                {!currentOrg?.descripcion &&
+                  !currentOrg?.direccion &&
+                  !currentOrg?.informacion_contacto && (
+                    <p className="text-body-secondary mb-0">
+                      {esAdmin
+                        ? 'Aún no hay información de la organización. Usa Editar para agregar una descripción, dirección y contacto.'
+                        : 'Aún no hay información de la organización.'}
+                    </p>
+                  )}
               </CCardBody>
               <CCardFooter>
-                <div className="d-flex justify-content-between align-items-center mb-0">
+                <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-0">
                   <p className="text-body-secondary mb-0">Usuarios en la organización:</p>
-                  <div className="d-flex gap-2">
-                    <CButton color="primary" onClick={() => setShowAddUserModal(true)}>
-                      Agregar usuarios
-                    </CButton>
+                  <div className="d-flex flex-wrap gap-2">
+                    {esAdmin && (
+                      <CButton color="primary" onClick={() => setShowAddUserModal(true)}>
+                        Agregar usuarios
+                      </CButton>
+                    )}
                     <CButton color="secondary" variant="outline" onClick={handleShowUserTable}>
                       {showUserTable ? 'Ocultar usuarios' : 'Mostrar usuarios'}
                     </CButton>
@@ -149,44 +219,27 @@ const Organizacion = () => {
                       <p className="mt-2 text-body-secondary small">Cargando usuarios...</p>
                     </div>
                   ) : (
-                    <CTable hover align="middle" className="border mb-0 mt-2">
-                      <CTableHead color="light">
-                        <CTableRow>
-                          <CTableHeaderCell scope="col">#</CTableHeaderCell>
-                          <CTableHeaderCell scope="col">Nombre</CTableHeaderCell>
-                          <CTableHeaderCell scope="col">Correo</CTableHeaderCell>
-                          <CTableHeaderCell scope="col">Rol</CTableHeaderCell>
-                        </CTableRow>
-                      </CTableHead>
-                      <CTableBody>
-                        {userData?.admins.map((user, index) => (
-                          <CTableRow key={user._id}>
-                            <CTableDataCell>{index + 1}</CTableDataCell>
-                            <CTableDataCell>{user.nombre}</CTableDataCell>
-                            <CTableDataCell>{user.correo}</CTableDataCell>
-                            <CTableDataCell>Administrador</CTableDataCell>
-                          </CTableRow>
-                        ))}
-                        {userData?.teachers.map((user, index) => (
-                          <CTableRow key={user._id}>
-                            <CTableDataCell>{userData?.admins.length + index + 1}</CTableDataCell>
-                            <CTableDataCell>{user.nombre}</CTableDataCell>
-                            <CTableDataCell>{user.correo}</CTableDataCell>
-                            <CTableDataCell>Profesor</CTableDataCell>
-                          </CTableRow>
-                        ))}
-                        {userData?.users.map((user, index) => (
-                          <CTableRow key={user._id}>
-                            <CTableDataCell>
-                              {userData?.admins.length + userData?.teachers.length + index + 1}
-                            </CTableDataCell>
-                            <CTableDataCell>{user.nombre}</CTableDataCell>
-                            <CTableDataCell>{user.correo}</CTableDataCell>
-                            <CTableDataCell>Alumno</CTableDataCell>
-                          </CTableRow>
-                        ))}
-                      </CTableBody>
-                    </CTable>
+                    <>
+                      {avisoQuitar && (
+                        <CAlert
+                          color="info"
+                          className="mt-2 mb-0"
+                          dismissible
+                          onClose={() => setAvisoQuitar('')}
+                        >
+                          {avisoQuitar}
+                        </CAlert>
+                      )}
+                      <TablaIntegrantes
+                        integrantes={integrantes}
+                        idUsuarioActual={authUser?._id}
+                        etiquetaAcceso={esAdmin ? 'Última conexión' : undefined}
+                        puedeQuitar={puedeQuitar}
+                        onQuitar={handleQuitar}
+                        describirQuitar={describirQuitar}
+                        textoVacio="No hay usuarios en esta organización."
+                      />
+                    </>
                   ))}
               </CCardFooter>
             </CCard>
@@ -229,6 +282,13 @@ const Organizacion = () => {
             </CCard>
           )}
 
+          {editando && currentOrg && (
+            <EditarOrgModal
+              organizacion={currentOrg}
+              onClose={() => setEditando(false)}
+              onGuardada={setCurrentOrg}
+            />
+          )}
           <AddUserToOrgModal
             visible={showAddUserModal}
             onClose={() => setShowAddUserModal(false)}

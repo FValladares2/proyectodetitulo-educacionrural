@@ -1,5 +1,4 @@
 const { isMongoConnected, ObjectId, collections } = require('../config/mongo')
-const accesoServices = require('./accesoServices')
 
 const createClass = async(classRoom) => {
     if (isMongoConnected() && collections.asignaturas) {
@@ -49,6 +48,9 @@ const getFilteredClasses = async ({
     userId,
     search,
     soloDocente = false,
+    // todas las asignaturas de la organización, no solo las del usuario (solo administradores;
+    // la ruta lo comprueba)
+    todas = false,
     activo = true,
     sortBy = 'nombre',
     order = 'asc',
@@ -65,11 +67,13 @@ const getFilteredClasses = async ({
     }
 
     // 2. Filtrar por pertenencia del usuario
+    // la ruta entrega soloDocente como booleano; antes se comparaba con 'true' y nunca filtraba
+    const userObjectId = ObjectId.isValid(userId) ? new ObjectId(String(userId)) : userId
     if (userId) {
-        if (soloDocente === 'true') {
-            query.docentes = userId
-        } else {
-            query.usuarios = userId
+        if (soloDocente === true || soloDocente === 'true') {
+            query.docentes = userObjectId
+        } else if (!todas) {
+            query.usuarios = userObjectId
         }
     }
 
@@ -113,31 +117,22 @@ const getFilteredClasses = async ({
 
     // nota: no trae el archivo de formato_markup porque es muy pesado
     
-    const [data, total] = await Promise.all([
+    // si es docente en alguna asignatura de la organización, para mostrar el filtro "soy Docente"
+    const filtroDocente = { docentes: userObjectId }
+    if (query.id_organizacion) filtroDocente.id_organizacion = query.id_organizacion
+    const [data, total, algunaComoDocente] = await Promise.all([
         cursor.toArray(),
-        collections.asignaturas.countDocuments(query)
+        collections.asignaturas.countDocuments(query),
+        userId ? collections.asignaturas.findOne(filtroDocente, { projection: { _id: 1 } }) : null,
     ])
 
     return {
         data,
         total,
+        docenteEnAlguna: Boolean(algunaComoDocente),
         page: Number(page),
         totalPages: Math.ceil(total / limit)
     }
-}
-
-const getAllClassesWithUser = async (id_usuario) => {
-    if (isMongoConnected() && collections.asignaturas) {
-        return collections.asignaturas.find({ usuarios: id_usuario }).project({ nombre: 1, _id: 1 }).toArray()
-    }
-    return []
-}
-
-const getClassesWithUser = async (id_usuario, amount, skip) => {
-    if (isMongoConnected() && collections.asignaturas) {
-        return collections.asignaturas.find({ usuarios: id_usuario }).limit(amount).skip(skip).project({ nombre: 1, _id: 1 }).toArray()
-    }
-    return []
 }
 
 const findUsuarioInAsign = async (id_asignatura, id_usuario) => {
@@ -163,38 +158,8 @@ const addUsuarioToAsign = async (id_asignatura, id_usuario) => {
     if (isMongoConnected() && collections.asignaturas) {
         const asigId = ObjectId.isValid(id_asignatura) ? new ObjectId(id_asignatura) : id_asignatura
         const userId = ObjectId.isValid(id_usuario) ? new ObjectId(id_usuario) : id_usuario
-        return collections.asignaturas.updateOne({ _id: asigId }, { $push: { usuarios: userId } })
-    }
-    return null
-}
-
-const addDocenteToAsign = async (id_asignatura, id_usuario) => {
-    if (isMongoConnected() && collections.asignaturas) {
-        const asigId = ObjectId.isValid(id_asignatura) ? new ObjectId(id_asignatura) : id_asignatura
-        const userId = ObjectId.isValid(id_usuario) ? new ObjectId(id_usuario) : id_usuario
-        return collections.asignaturas.updateOne({ _id: asigId }, { $push: { docentes: userId } })
-    }
-    return null
-}
-
-const removeUsuarioFromAsign = async (id_asignatura, id_usuario) => {
-    if (isMongoConnected() && collections.asignaturas) {
-        await accesoServices.eliminarAccesos(id_asignatura, id_usuario)
-        return collections.asignaturas.updateOne({ _id: ObjectId.isValid(id_asignatura) ? new ObjectId(id_asignatura) : id_asignatura }, { $pull: { usuarios: id_usuario } })
-    }
-    return null
-}
-
-const removeDocenteFromAsign = async (id_asignatura, id_usuario) => {
-    if (isMongoConnected() && collections.asignaturas) {
-        return collections.asignaturas.updateOne({ _id: ObjectId.isValid(id_asignatura) ? new ObjectId(id_asignatura) : id_asignatura }, { $pull: { docentes: id_usuario } })
-    }
-    return null
-}
-
-const addUsuarioToAsignBatch = async (id_asignatura, id_usuarios) => {
-    if (isMongoConnected() && collections.asignaturas) {
-        return collections.asignaturas.updateOne({ _id: ObjectId.isValid(id_asignatura) ? new ObjectId(id_asignatura) : id_asignatura }, { $push: { usuarios: { $each: id_usuarios } } })
+        // $addToSet: agregar a alguien que ya está no lo duplica
+        return collections.asignaturas.updateOne({ _id: asigId }, { $addToSet: { usuarios: userId } })
     }
     return null
 }
@@ -224,19 +189,31 @@ const addUsersToAsignByRole = async (id_asignatura, { profesores = [], alumnos =
     return null
 }
 
+/**
+ * Una asignatura inactiva es de solo lectura: se puede ver su contenido, archivos y tareas,
+ * pero no editarlos ni entregar. Siguen permitidos calificar, gestionar integrantes y cambiar
+ * su configuración (para reactivarla).
+ * @param {object|string|ObjectId} asignatura - documento o id
+ * @returns {Promise<null | { status: number, message: string }>}
+ */
+const motivoAsignaturaInactiva = async (asignatura) => {
+    const doc = asignatura && typeof asignatura === 'object' && 'activo' in asignatura
+        ? asignatura
+        : await getClassById(asignatura)
+    if (doc && doc.activo === false) {
+        return { status: 409, message: 'La asignatura está inactiva y es de solo lectura. Un docente puede reactivarla desde su configuración.' }
+    }
+    return null
+}
+
 module.exports = {
+    motivoAsignaturaInactiva,
     createClass,
     updateClass,
     getClassById,
     getFilteredClasses,
-    getAllClassesWithUser,
-    getClassesWithUser,
     findUsuarioInAsign,
     findDocenteInAsign,
     addUsuarioToAsign,
-    addDocenteToAsign,
-    removeUsuarioFromAsign,
-    removeDocenteFromAsign,
-    addUsuarioToAsignBatch,
     addUsersToAsignByRole,
 }

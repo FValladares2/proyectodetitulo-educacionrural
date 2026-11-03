@@ -44,25 +44,23 @@ const Login = () => {
       contrasena: password,
     })
       .then((data) => {
-        console.log('Login successful:', data)
         finishLogin(data)
       })
       .catch((error) => {
-        console.error('Login failed:', error)
-        // la contraseña solo se puede verificar en el servidor: sin conexión no hay forma de
-        // entrar, y no se guarda nada en el equipo que permita hacerlo
         setErrorLogin(
           error.sinConexion
             ? {
                 titulo: 'Sin conexión con el servidor',
-                mensaje: `${error.message} Para iniciar sesión se necesita conexión; si ya tenías la sesión abierta en este equipo, lo que abriste sigue disponible sin conexión.`,
+                mensaje: `${error.message} Para iniciar sesión se necesita conexión`,
               }
-            : error.status === 400 || error.status === 401
-              ? {
-                  titulo: 'Error al iniciar sesión',
-                  mensaje: 'Datos de usuario incorrectos. Por favor, intenta de nuevo.',
-                }
-              : { titulo: 'Error al iniciar sesión', mensaje: error.message },
+            : error.data?.codigo === 'cuenta_desactivada'
+              ? { titulo: 'Cuenta desactivada', mensaje: error.message }
+              : error.status === 400 || error.status === 401
+                ? {
+                    titulo: 'Error al iniciar sesión',
+                    mensaje: 'Correo o contraseña incorrectos. Por favor, intenta de nuevo.',
+                  }
+                : { titulo: 'Error al iniciar sesión', mensaje: error.message },
         )
         setVisibleModal(true)
       })
@@ -104,9 +102,10 @@ const Login = () => {
                       Tu sesión expiró. Inicia sesión de nuevo para continuar.
                     </CAlert>
                   )}
-                  <CForm className="row gy-3">
+                  {/* con un botón de envío, Enter en cualquier campo inicia sesión */}
+                  <CForm className="row gy-3" onSubmit={handleSubmit}>
                     <CCol xs={12}>
-                      <CFormLabel htmlFor="email">Correo o Nombre de Usuario</CFormLabel>
+                      <CFormLabel htmlFor="email">Correo</CFormLabel>
                       <CFormInput
                         id="email"
                         type="email"
@@ -117,10 +116,7 @@ const Login = () => {
                       />
                     </CCol>
                     <CCol xs={12}>
-                      <div className="d-flex justify-content-between">
-                        <CFormLabel htmlFor="password">Contraseña</CFormLabel>
-                        <Link to="/authentication/reset-password">No tengo mi contraseña</Link>
-                      </div>
+                      <CFormLabel htmlFor="password">Contraseña</CFormLabel>
                       <CInputGroup>
                         <CFormInput
                           id="password"
@@ -144,6 +140,12 @@ const Login = () => {
                           </CTooltip>
                         </CInputGroupText>
                       </CInputGroup>
+                      {/* después del campo para que Tab vaya de Correo a Contraseña */}
+                      <div className="text-end mt-1">
+                        <Link to="/authentication/reset-password" className="small">
+                          No tengo mi contraseña
+                        </Link>
+                      </div>
                     </CCol>
                     <CCol xs={12}>
                       <CFormCheck
@@ -154,12 +156,7 @@ const Login = () => {
                       />
                     </CCol>
                     <CCol xs={12}>
-                      <CButton
-                        color="primary"
-                        type="button"
-                        className="w-100"
-                        onClick={handleSubmit}
-                      >
+                      <CButton color="primary" type="submit" className="w-100">
                         Entrar
                       </CButton>
                     </CCol>

@@ -235,6 +235,8 @@ const motivoFueraDePlazo = async (tarea, userId) => {
     if (!await asignServices.findUsuarioInAsign(tarea.id_asignatura, userId)) {
         return { status: 403, message: 'No perteneces a la asignatura de esta tarea.' }
     }
+    const inactiva = await asignServices.motivoAsignaturaInactiva(tarea.id_asignatura)
+    if (inactiva) return inactiva
     const estado = estadoTarea(tarea)
     if (estado === 'pendiente') {
         return { status: 403, message: 'La tarea aún no está abierta para entregas.' }

@@ -21,23 +21,19 @@ const registrarAcceso = async (id_usuario, id_asignatura) => {
 }
 
 /**
- * Elimina los accesos de una asignatura, o solo los de un usuario en ella.
- * @param {string|ObjectId} id_asignatura
- * @param {string|ObjectId} [id_usuario]
- * @returns {Promise<object|null>}
+ * Último acceso de cada usuario a una asignatura.
+ * @returns {Promise<Map<string, Date>>} id del usuario -> fecha
  */
-const eliminarAccesos = async (id_asignatura, id_usuario) => {
-    if (isMongoConnected() && collections.accesos) {
-        const filtro = { id_asignatura: aObjectId(id_asignatura) }
-        if (id_usuario) {
-            filtro.id_usuario = aObjectId(id_usuario)
-        }
-        return collections.accesos.deleteMany(filtro)
-    }
-    return null
+const ultimosAccesos = async (id_asignatura) => {
+    if (!isMongoConnected() || !collections.accesos) return new Map()
+    const accesos = await collections.accesos
+        .find({ id_asignatura: aObjectId(id_asignatura) })
+        .project({ _id: 0, id_usuario: 1, ultimo_acceso: 1 })
+        .toArray()
+    return new Map(accesos.map((a) => [String(a.id_usuario), a.ultimo_acceso]))
 }
 
 module.exports = {
+    ultimosAccesos,
     registrarAcceso,
-    eliminarAccesos,
 }

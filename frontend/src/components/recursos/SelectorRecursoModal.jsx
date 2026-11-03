@@ -57,7 +57,7 @@ const SelectorRecursoModal = ({
   }
 
   return (
-    <CModal visible={visible} onClose={onClose} size="xl" alignment="center">
+    <CModal visible={visible} onClose={onClose} size="xl" alignment="center" fullscreen="sm">
       <CModalHeader>
         <CModalTitle>{titulo || tituloPorDefecto}</CModalTitle>
       </CModalHeader>

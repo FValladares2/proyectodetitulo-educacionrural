@@ -236,28 +236,6 @@ const updateRecurso = async (id, campos) => {
 }
 
 /**
- * Retrieves a recurso by ID and decrypts its content.
- * @param {string|ObjectId} id
- * @returns {Promise<object|null>}
- */
-const findRecursoAndDecrypt = async (id) => {
-  const doc = await findRecursoById(id)
-  if (!doc) return null
-
-  if (doc.recurso) {
-    try {
-      const decrypted = await descifrarRecurso(doc.recurso, doc.id_usuario)
-      return { ...doc, recurso: decrypted }
-    } catch (err) {
-      console.error(`Error descifrando recurso ${id}:`, err.message)
-      return { ...doc, recursoError: 'No se pudo descifrar el recurso.' }
-    }
-  }
-
-  return doc
-}
-
-/**
  * Deletes a recurso by ID.
  * @param {string|ObjectId} id
  * @returns {Promise<object|null>}
@@ -285,6 +263,5 @@ module.exports = {
   existeNombreEnContenedor,
   validarImagenBanner,
   updateRecurso,
-  findRecursoAndDecrypt,
   deleteRecurso,
 }

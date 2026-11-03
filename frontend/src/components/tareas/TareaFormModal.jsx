@@ -94,7 +94,14 @@ const TareaFormModal = ({ visible, onClose, idAsignatura, tarea = null, onGuarda
   }
 
   return (
-    <CModal visible={visible} onClose={onClose} alignment="center" size="lg" backdrop="static">
+    <CModal
+      visible={visible}
+      onClose={onClose}
+      alignment="center"
+      size="lg"
+      backdrop="static"
+      fullscreen="sm"
+    >
       <CForm onSubmit={handleSubmit}>
         <CModalHeader>
           <CModalTitle>{tarea ? 'Editar tarea' : 'Nueva tarea'}</CModalTitle>
