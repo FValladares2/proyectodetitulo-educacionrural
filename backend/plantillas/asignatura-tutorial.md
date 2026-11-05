@@ -438,8 +438,8 @@ Esta sección está dirigida al personal técnico que desee alojar la plataforma
 ### Componentes
 
 - **Frontend**: la aplicación web, servida por nginx en el puerto 8065, que además redirige las solicitudes `/api` al backend.
-- **Backend**: el servidor Node.js con la API, en el puerto 8064.
-- **Base de datos**: una instancia de MongoDB, local o externa.
+- **Backend**: el servidor Node.js con la API, en el puerto 8064. No se publica fuera de Docker: solo el frontend accede a él.
+- **Base de datos**: una instancia de MongoDB, local o externa. La local solo es accesible desde el propio servidor e incluye un servicio de respaldo diario.
 
 ### Requisitos
 
@@ -465,12 +465,26 @@ Con una base de datos externa, basta con:
 
 `docker compose up -d --build`
 
-La plataforma queda disponible en el puerto 8065 del servidor, por ejemplo en `http://<dirección-del-servidor>:8065`. El primer administrador se crea mediante el registro de una institución, descrito en _Acceso a la plataforma_.
+La plataforma queda disponible en el puerto 8065 del servidor, por ejemplo en `http://<dirección-del-servidor>:8065`. El primer administrador se crea mediante el registro de una institución, descrito en _Acceso a la plataforma_. Los servicios se reinician automáticamente si se detienen o si el servidor se reinicia.
+
+### Acceso desde Internet mediante un túnel
+
+Si el servidor no tiene una dirección pública, puede publicarse mediante un túnel, que además entrega la plataforma con HTTPS. Se agrega al comando de puesta en marcha uno de los siguientes perfiles:
+
+- `--profile ngrok`: requiere una cuenta de ngrok. Se definen en `backend/.env` el token de la cuenta, `NGROK_AUTHTOKEN`, y el dominio asignado, `NGROK_URL`.
+- `--profile cloudflare`: requiere un dominio administrado en Cloudflare y un túnel creado en su panel, con destino `http://frontend:8065`. Se define en `backend/.env` el token del túnel, `TUNNEL_TOKEN`.
+
+Por ejemplo, con la base de datos local y ngrok:
+
+`docker compose -f compose.yaml -f compose.local.yaml --profile ngrok up -d --build`
+
+En ambos casos, `APP_URL` debe corresponder a la dirección pública, con `https://`.
 
 ### Consideraciones
 
 - El funcionamiento sin conexión requiere que la plataforma se sirva mediante HTTPS, salvo cuando se accede desde el mismo equipo (`localhost`). En una red local se recomienda disponer un proxy inverso con certificado.
-- Los datos de la base de datos local se conservan en el volumen de Docker `mongo_data`, que debe incluirse en los respaldos periódicos.
+- Con la base de datos local, el servicio `respaldo` genera cada 24 horas una copia en la carpeta `respaldos` del proyecto y conserva las de los últimos 7 días. Se recomienda copiar esa carpeta periódicamente a otro equipo. La forma de restaurar un respaldo se indica en `scripts/respaldo.sh`.
+- Los respaldos no incluyen `ENCRYPTION_KEY`, que debe guardarse por separado: sin ella no es posible recuperar los archivos.
 - Para actualizar la plataforma, se obtiene la nueva versión del código y se vuelve a ejecutar el comando de puesta en marcha. Los usuarios verán el aviso de nueva versión al ingresar.
 - Cambiar `TOKEN_SECRETO` o `ENCRYPTION_KEY`, cuando la primera no está definida, cierra todas las sesiones abiertas.
 

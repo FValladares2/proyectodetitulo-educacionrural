@@ -1,13 +1,21 @@
+# Plataforma con base de datos externa (por ejemplo MongoDB Atlas):
+#     docker compose up -d --build
+# Con la base de datos local incluida, agregar compose.local.yaml (ver ese archivo).
+# Acceso público mediante un túnel (opcional), agregando un perfil:
+#     --profile ngrok        túnel de ngrok (NGROK_AUTHTOKEN y NGROK_URL en backend/.env)
+#     --profile cloudflare   túnel de Cloudflare (TUNNEL_TOKEN en backend/.env)
 services:
   frontend:
     image: educacionrural-frontend
     build:
-      context: ./frontend 
+      context: ./frontend
       dockerfile: ./Dockerfile
     environment:
       NODE_ENV: production
     depends_on:
       - backend
+    restart: unless-stopped
+    # único puerto publicado: nginx sirve la aplicación y redirige /api al backend
     ports:
       - 8065:8065
 
@@ -21,5 +29,35 @@ services:
       PORT: 8064
     env_file:
       - ./backend/.env
-    ports:
-      - 8064:8064
+    restart: unless-stopped
+    # sin puerto publicado: solo es accesible desde nginx, dentro de la red de Docker
+    expose:
+      - 8064
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8064/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  ngrok:
+    image: ngrok/ngrok:alpine
+    profiles: ["ngrok"]
+    depends_on:
+      - frontend
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c", "exec ngrok http http://frontend:8065 --url \"$$NGROK_URL\" --log stdout"]
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: ["cloudflare"]
+    depends_on:
+      - frontend
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+    # la dirección pública y el destino (http://frontend:8065) se configuran en el panel de Cloudflare
+    command: tunnel --no-autoupdate run
+

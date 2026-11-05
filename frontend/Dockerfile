@@ -20,5 +20,5 @@ COPY --from=build /app/build /usr/share/nginx/html
 
 EXPOSE 8065
 
-HEALTHCHECK CMD curl --fail http://localhost/ || exit 1
+HEALTHCHECK CMD curl --fail http://localhost:8065/ || exit 1
 CMD ["nginx", "-g", "daemon off;"]

@@ -1,5 +1,5 @@
-# Compose extra para crear y usar instancia de mongodb local
-#     Ejecutar con: docker compose -f compose.yaml -f compose.local.yaml up --build
+# Compose extra para crear y usar instancia de mongodb local, con respaldos diarios
+#     Ejecutar con: docker compose -f compose.yaml -f compose.local.yaml up -d --build
 services:
   backend:
     environment:
@@ -9,11 +9,30 @@ services:
       - mongodb
 
   mongodb:
-    image: mongo:latest
+    # versión mayor fija: una versión nueva de MongoDB podría no abrir los datos existentes
+    image: mongo:8
+    restart: unless-stopped
+    # publicado solo en el propio equipo (para pruebas de integración y herramientas locales),
+    # no en la red: el resto de los servicios lo usa dentro de la red de Docker
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongo_data:/data/db
+
+  respaldo:
+    image: mongo:8
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/
+      MONGODB_DB: 'educacionrural'
+      RESPALDO_INTERVALO_HORAS: 24
+      RESPALDO_RETENCION_DIAS: 7
+    volumes:
+      - ./respaldos:/respaldos
+      - ./scripts/respaldo.sh:/respaldo.sh:ro
+    entrypoint: ["/bin/sh", "/respaldo.sh"]
 
 volumes:
   mongo_data:
