@@ -194,7 +194,7 @@ const AddUserToOrgModal = ({ visible, onClose, onSuccess }) => {
             </CNavItem>
           </CNav>
 
-          <div className="row g-3 align-items-end">
+          <div className="row g-3 align-items-start">
             {activeTab === 'nuevo' && (
               <div className="col-md-4">
                 <CFormLabel htmlFor="nuevoUsuarioNombre">Nombre</CFormLabel>
@@ -254,7 +254,7 @@ const AddUserToOrgModal = ({ visible, onClose, onSuccess }) => {
                 ))}
               </CFormSelect>
             </div>
-            <div className="col-md-6">
+            <div className="col-md-6 align-self-end">
               <CInputGroup>
                 <CButton
                   type="button"
