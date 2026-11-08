@@ -129,7 +129,16 @@ const getTeachersInOrg = async (id_organizacion) => {
 
   return []
 }
+// todas las asignaturas de la organización, activas o no; solo los datos para listarlas
+const getAsignaturasDeOrg = async (id_organizacion) => {
+  if (isMongoConnected() && collections.asignaturas) {
+    return collections.asignaturas
+      .find({ id_organizacion: aObjectId(id_organizacion) }, { projection: { nombre: 1, activo: 1 } })
+      .toArray()
+  }
 
+  return []
+}
 
 module.exports = {
   findUserInOrg,
@@ -143,5 +152,6 @@ module.exports = {
   getUsersInOrg,
   getAdminsInOrg,
   getTeachersInOrg,
+  getAsignaturasDeOrg,
   updateOrg
 }

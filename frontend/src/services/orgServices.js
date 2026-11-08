@@ -90,6 +90,13 @@ const actualizarOrg = (id_organizacion, datos) =>
     mensajeError: 'No se pudo guardar la organización.',
   })
 
+// espacio usado por los archivos de la organización y de cada asignatura (solo administradores)
+const getAlmacenamientoOrg = (id_organizacion, signal = undefined) =>
+  apiFetch(`/api/org/${id_organizacion}/almacenamiento`, {
+    signal,
+    mensajeError: 'No se pudo obtener el almacenamiento de la organización.',
+  })
+
 const orgServices = {
   actualizarOrg,
   getInitialOrgId,
@@ -100,6 +107,7 @@ const orgServices = {
   updateOrgImg,
   addUsersToOrgBatch,
   quitarUsuarioDeOrg,
+  getAlmacenamientoOrg,
 }
 
 export {
@@ -112,5 +120,6 @@ export {
   updateOrgImg,
   addUsersToOrgBatch,
   quitarUsuarioDeOrg,
+  getAlmacenamientoOrg,
 }
 export default orgServices

@@ -248,7 +248,84 @@ const deleteRecurso = async (id) => {
   return null
 }
 
+/**
+ * Espacio de almacenamiento, por ahora el mismo para cada organización: el límite del plan
+ * gratuito de MongoDB Atlas, aunque todas comparten la misma base de datos.
+ */
+const LIMITE_ALMACENAMIENTO = 512 * 1024 * 1024
+
+const espacioVacio = () => ({ archivos: 0, tamano: 0, almacenado: 0 })
+
+const sumarEspacio = (destino, origen) => {
+  destino.archivos += origen.archivos
+  destino.tamano += origen.tamano
+  destino.almacenado += origen.almacenado
+  return destino
+}
+
+/**
+ * Espacio que ocupan los archivos de las asignaturas indicadas, separado en el material de la
+ * asignatura y las entregas de sus tareas, y opcionalmente los archivos generales de una
+ * organización. Para cada parte devuelve { archivos, tamano, almacenado }: tamano es el tamaño
+ * original de los archivos y almacenado lo que ocupan sus documentos en la base de datos, mayor
+ * por la codificación base64 y el cifrado.
+ * @param {{ ids_asignatura?: Array<string|ObjectId>, id_organizacion?: string|ObjectId }} opciones
+ * @returns {Promise<{ asignaturas: Object<string, { material: object, entregas: object }>, organizacion: object } | null>}
+ */
+const resumirAlmacenamiento = async ({ ids_asignatura = [], id_organizacion } = {}) => {
+  if (!isMongoConnected() || !collections.recursos || !collections.tareas) return null
+
+  const ids = ids_asignatura.map(aObjectId)
+  const asignaturas = Object.fromEntries(
+    ids.map((id) => [String(id), { material: espacioVacio(), entregas: espacioVacio() }])
+  )
+  const organizacion = espacioVacio()
+
+  // los archivos de una entrega apuntan a la tarea, no a la asignatura
+  const tareas = ids.length
+    ? await collections.tareas.find({ id_asignatura: { $in: ids } }, { projection: { id_asignatura: 1 } }).toArray()
+    : []
+  const asignaturaDeTarea = new Map(tareas.map((tarea) => [String(tarea._id), String(tarea.id_asignatura)]))
+
+  const filtros = []
+  if (ids.length) filtros.push({ id_asignatura: { $in: ids } })
+  if (tareas.length) filtros.push({ id_tarea: { $in: tareas.map((tarea) => tarea._id) } })
+  if (id_organizacion) filtros.push({ id_organizacion: aObjectId(id_organizacion) })
+  if (filtros.length === 0) return { asignaturas, organizacion }
+
+  const grupos = await collections.recursos
+    .aggregate([
+      { $match: { $or: filtros } },
+      {
+        $group: {
+          _id: { asignatura: '$id_asignatura', tarea: '$id_tarea', organizacion: '$id_organizacion' },
+          archivos: { $sum: 1 },
+          tamano: { $sum: { $ifNull: ['$tamano', 0] } },
+          almacenado: { $sum: { $bsonSize: '$$ROOT' } },
+        },
+      },
+    ])
+    .toArray()
+
+  for (const { _id, ...espacio } of grupos) {
+    if (_id.tarea) {
+      const asignatura = asignaturas[asignaturaDeTarea.get(String(_id.tarea))]
+      if (asignatura) sumarEspacio(asignatura.entregas, espacio)
+    } else if (_id.asignatura) {
+      const asignatura = asignaturas[String(_id.asignatura)]
+      if (asignatura) sumarEspacio(asignatura.material, espacio)
+    } else if (_id.organizacion) {
+      sumarEspacio(organizacion, espacio)
+    }
+  }
+  return { asignaturas, organizacion }
+}
+
 module.exports = {
+  LIMITE_ALMACENAMIENTO,
+  sumarEspacio,
+  espacioVacio,
+  resumirAlmacenamiento,
   getMasterKey,
   getRecursoKey,
   cifrarRecurso,

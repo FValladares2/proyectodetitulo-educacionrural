@@ -1407,6 +1407,98 @@ body {
 }
 
 // ------------------------------------------------------------------------------
+// Almacenamiento de la organización (barra apilada y tabla)
+// ------------------------------------------------------------------------------
+
+// colores categóricos en orden fijo, validados para daltonismo en claro y oscuro (los
+// adyacentes de la barra se distinguen); el gris es "otras" y la trama, la sobrecarga
+:root,
+[data-coreui-theme="light"] {
+  --almacenamiento-serie-1: #2a78d6;
+  --almacenamiento-serie-2: #eb6834;
+  --almacenamiento-serie-3: #1baf7a;
+  --almacenamiento-serie-4: #eda100;
+  --almacenamiento-serie-5: #e87ba4;
+  --almacenamiento-organizacion: #6250d6;
+  --almacenamiento-otras: #898781;
+}
+
+[data-coreui-theme="dark"] {
+  --almacenamiento-serie-1: #3987e5;
+  --almacenamiento-serie-2: #d95926;
+  --almacenamiento-serie-3: #199e70;
+  --almacenamiento-serie-4: #c98500;
+  --almacenamiento-serie-5: #d55181;
+  --almacenamiento-organizacion: #9085e9;
+  --almacenamiento-otras: #898781;
+}
+
+@for $i from 1 through 5 {
+  .almacenamiento-serie-#{$i} {
+    background-color: var(--almacenamiento-serie-#{$i});
+  }
+}
+
+.almacenamiento-organizacion {
+  background-color: var(--almacenamiento-organizacion);
+}
+
+.almacenamiento-otras {
+  background-color: var(--almacenamiento-otras);
+}
+
+.almacenamiento-cifrado {
+  background-color: transparent;
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--almacenamiento-otras) 0 2px,
+    transparent 2px 6px
+  );
+}
+
+.almacenamiento-libre {
+  background-color: var(--cui-progress-bg, var(--cui-secondary-bg));
+}
+
+.barra-almacenamiento {
+  height: 1.25rem;
+
+  // separación de 2px entre segmentos, del color de la tarjeta
+  > .progress + .progress {
+    border-left: 2px solid var(--cui-card-bg, var(--cui-body-bg));
+  }
+}
+
+.almacenamiento-muestra {
+  flex-shrink: 0;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 3px;
+}
+
+.almacenamiento-cifrado.almacenamiento-muestra,
+.almacenamiento-libre.almacenamiento-muestra {
+  outline: 1px solid var(--cui-border-color);
+}
+
+// pestañas del área Organización: en pantallas angostas se desplazan en vez de saltar de línea
+.organizacion-pestanas {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  .nav-link {
+    white-space: nowrap;
+  }
+}
+
+.tabla-almacenamiento .tabla-almacenamiento-nombre {
+  width: 100%;
+  max-width: 0;
+  min-width: 9rem;
+}
+
+// ------------------------------------------------------------------------------
 // Pantallas bajas (teléfonos en horizontal). Al final del archivo para que prevalezca sobre
 // las reglas base de las mismas clases.
 // ------------------------------------------------------------------------------

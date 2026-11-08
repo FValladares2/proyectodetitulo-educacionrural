@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM docker.io/library/node:20-alpine AS build
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ RUN npm install
 COPY . ./
 RUN npm run build
 
-FROM nginx:alpine AS production
+FROM docker.io/library/nginx:alpine AS production
 
 RUN apk add --no-cache curl
 

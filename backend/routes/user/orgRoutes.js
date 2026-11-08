@@ -287,6 +287,46 @@ router.put('/api/org/:id', authenticate, async (req, res) => {
     }
 })
 
+// espacio que ocupan los archivos de la organización y de cada asignatura; solo administradores
+router.get('/api/org/:id/almacenamiento', authenticate, async (req, res) => {
+    try {
+        const { id } = req.params
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Parámetros inválidos.' })
+        }
+        if (!(await orgServices.findAdminInOrg(id, req.user._id))) {
+            return res.status(403).json({ message: 'Solo un administrador puede ver el almacenamiento de la organización.' })
+        }
+
+        const asignaturas = await orgServices.getAsignaturasDeOrg(id)
+        const resumen = await recursoServices.resumirAlmacenamiento({
+            ids_asignatura: asignaturas.map((a) => a._id),
+            id_organizacion: id,
+        })
+        if (!resumen) {
+            return res.status(503).json({ message: 'Base de datos no disponible.' })
+        }
+
+        const total = recursoServices.sumarEspacio(recursoServices.espacioVacio(), resumen.organizacion)
+        const detalle = asignaturas.map((asignatura) => {
+            const { material, entregas } = resumen.asignaturas[String(asignatura._id)]
+            const subtotal = recursoServices.sumarEspacio(recursoServices.sumarEspacio(recursoServices.espacioVacio(), material), entregas)
+            recursoServices.sumarEspacio(total, subtotal)
+            return { _id: asignatura._id, nombre: asignatura.nombre, activo: asignatura.activo !== false, material, entregas, total: subtotal }
+        })
+
+        res.status(200).json({
+            limite: recursoServices.LIMITE_ALMACENAMIENTO,
+            total,
+            organizacion: resumen.organizacion,
+            asignaturas: detalle,
+        })
+    } catch (error) {
+        console.error('Error al calcular el almacenamiento de la organización:', error)
+        res.status(500).json({ message: 'No se pudo calcular el almacenamiento.' })
+    }
+})
+
 // quitar a un integrante; solo administradores (también a sí mismos si queda otro administrador)
 router.delete('/api/org/:id/users/:id_usuario', authenticate, async (req, res) => {
     try {

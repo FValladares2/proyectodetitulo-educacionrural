@@ -1,6 +1,8 @@
 # Plataforma con base de datos externa (por ejemplo MongoDB Atlas):
 #     docker compose up -d --build
 # Con la base de datos local incluida, agregar compose.local.yaml (ver ese archivo).
+# Con Podman, los mismos comandos con "podman compose". Las imágenes llevan el registro completo
+# (docker.io/...) porque Podman no siempre asume Docker Hub.
 # Acceso público mediante un túnel (opcional), agregando un perfil:
 #     --profile ngrok        túnel de ngrok (NGROK_AUTHTOKEN y NGROK_URL en backend/.env)
 #     --profile cloudflare   túnel de Cloudflare (TUNNEL_TOKEN en backend/.env)
@@ -41,7 +43,7 @@ services:
       start_period: 20s
 
   ngrok:
-    image: ngrok/ngrok:alpine
+    image: docker.io/ngrok/ngrok:alpine
     profiles: ["ngrok"]
     depends_on:
       - frontend
@@ -51,7 +53,7 @@ services:
     entrypoint: ["/bin/sh", "-c", "exec ngrok http http://frontend:8065 --url \"$$NGROK_URL\" --log stdout"]
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: docker.io/cloudflare/cloudflared:latest
     profiles: ["cloudflare"]
     depends_on:
       - frontend

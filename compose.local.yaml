@@ -10,7 +10,7 @@ services:
 
   mongodb:
     # versión mayor fija: una versión nueva de MongoDB podría no abrir los datos existentes
-    image: mongo:8
+    image: docker.io/library/mongo:8
     restart: unless-stopped
     # publicado solo en el propio equipo (para pruebas de integración y herramientas locales),
     # no en la red: el resto de los servicios lo usa dentro de la red de Docker
@@ -20,7 +20,7 @@ services:
       - mongo_data:/data/db
 
   respaldo:
-    image: mongo:8
+    image: docker.io/library/mongo:8
     restart: unless-stopped
     depends_on:
       - mongodb
@@ -29,9 +29,11 @@ services:
       MONGODB_DB: 'educacionrural'
       RESPALDO_INTERVALO_HORAS: 24
       RESPALDO_RETENCION_DIAS: 7
+    # ":z" permite el acceso a las carpetas montadas con SELinux activo (Podman en Fedora/RHEL);
+    # Docker lo ignora si SELinux no está activo
     volumes:
-      - ./respaldos:/respaldos
-      - ./scripts/respaldo.sh:/respaldo.sh:ro
+      - ./respaldos:/respaldos:z
+      - ./scripts/respaldo.sh:/respaldo.sh:ro,z
     entrypoint: ["/bin/sh", "/respaldo.sh"]
 
 volumes:

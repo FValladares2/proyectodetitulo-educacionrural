@@ -380,4 +380,76 @@ describeConMongo("configuración y asignaturas inactivas (MongoDB real)", () => 
       ).status,
     ).toBe(200);
   });
+
+  describe("almacenamiento", () => {
+    let HISTORIA;
+    let resumenOrg;
+
+    beforeAll(async () => {
+      const { collections } = mongo;
+      HISTORIA = (
+        await collections.asignaturas.insertOne({
+          nombre: "Historia",
+          id_organizacion: ORG,
+          activo: false,
+          docentes: [u.docente],
+          usuarios: [u.docente, u.ana],
+        })
+      ).insertedId;
+      const tarea = (
+        await collections.tareas.insertOne({ id_asignatura: HISTORIA, titulo: "Ensayo" })
+      ).insertedId;
+      // el contenido simula el archivo cifrado, más grande que el original
+      await collections.recursos.insertMany([
+        { id_asignatura: HISTORIA, nombre: "guia.pdf", tamano: 1000, recurso: "x".repeat(1400) },
+        { id_asignatura: HISTORIA, nombre: "mapa.png", tamano: 500, recurso: "x".repeat(700) },
+        { id_tarea: tarea, id_usuario: u.ana, nombre: "ensayo.pdf", tamano: 200, recurso: "x".repeat(300) },
+        { id_organizacion: ORG, nombre: "logo.png", tamano: 300, recurso: "x".repeat(400) },
+      ]);
+      resumenOrg = await como("admin").get(`/api/org/${ORG}/almacenamiento`);
+    });
+
+    test("el administrador ve el espacio de cada asignatura, separado en material y entregas", () => {
+      expect(resumenOrg.status).toBe(200);
+      expect(resumenOrg.body.limite).toBe(512 * 1024 * 1024);
+      const historia = resumenOrg.body.asignaturas.find((a) => a._id === String(HISTORIA));
+      expect(historia).toMatchObject({
+        nombre: "Historia",
+        activo: false,
+        material: { archivos: 2, tamano: 1500 },
+        entregas: { archivos: 1, tamano: 200 },
+        total: { archivos: 3, tamano: 1700 },
+      });
+      // lo almacenado incluye el documento completo, así que siempre supera al original
+      expect(historia.material.almacenado).toBeGreaterThan(1400 + 700);
+      expect(historia.total.almacenado).toBe(historia.material.almacenado + historia.entregas.almacenado);
+    });
+
+    test("el total suma los archivos de la organización y los de todas sus asignaturas", () => {
+      const { total, organizacion, asignaturas } = resumenOrg.body;
+      expect(organizacion.archivos).toBeGreaterThanOrEqual(1);
+      expect(organizacion.tamano).toBeGreaterThanOrEqual(300);
+      // Ciencias (renombrada en una prueba anterior) e Historia
+      expect(asignaturas).toHaveLength(2);
+      for (const campo of ["archivos", "tamano", "almacenado"]) {
+        const suma = asignaturas.reduce((acc, a) => acc + a.total[campo], organizacion[campo]);
+        expect(total[campo]).toBe(suma);
+      }
+    });
+
+    test("solo los administradores ven el almacenamiento de la organización", async () => {
+      expect((await como("docente").get(`/api/org/${ORG}/almacenamiento`)).status).toBe(403);
+      expect((await como("ana").get(`/api/org/${ORG}/almacenamiento`)).status).toBe(403);
+      expect((await como("admin").get("/api/org/no-es-id/almacenamiento")).status).toBe(400);
+    });
+
+    test("la configuración de la asignatura incluye su espacio usado", async () => {
+      const config = await como("docente").get(`/api/asign/${HISTORIA}/config`);
+      expect(config.status).toBe(200);
+      expect(config.body.almacenamiento).toMatchObject({
+        material: { archivos: 2, tamano: 1500 },
+        entregas: { archivos: 1, tamano: 200 },
+      });
+    });
+  });
 });

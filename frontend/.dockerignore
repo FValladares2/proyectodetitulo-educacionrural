@@ -1,0 +1,11 @@
+# Lo que no se envía al construir la imagen. node_modules y build se generan dentro de la
+# imagen: copiar los del equipo reemplazaría dependencias compiladas para otro sistema.
+node_modules
+build
+coverage
+.env
+.env.*
+.git
+.github
+.eslintcache
+npm-debug.log*

@@ -117,7 +117,7 @@ El área <u>Archivos</u> reúne los archivos compartidos en las asignaturas del 
 
 ### Organización
 
-Todo usuario pertenece al menos a una organización, la cual se crea junto con una cuenta de _Administrador_. El área <u>Organización</u> muestra los datos de la organización activa, su lista de integrantes y las demás organizaciones a las que pertenece el usuario.
+Todo usuario pertenece al menos a una organización, la cual se crea junto con una cuenta de _Administrador_. El área <u>Organización</u> se divide en pestañas: **Información**, con los datos de la organización activa; **Usuarios**, con la lista de integrantes; y **Almacenamiento**, visible solo para administradores. Bajo ellas se listan las demás organizaciones a las que pertenece el usuario.
 
 Por motivos de seguridad, solo un administrador puede agregar usuarios a la organización. Asimismo, por motivos de privacidad, no es posible agregar a una asignatura a usuarios externos a la organización.
 
@@ -139,7 +139,7 @@ Las acciones de esta sección están disponibles únicamente para usuarios con r
 
 ### Agregar usuarios
 
-El botón **Agregar usuarios** del área <u>Organización</u> abre un formulario con dos pestañas:
+El botón **Agregar usuarios** de la pestaña **Usuarios** del área <u>Organización</u> abre un formulario con dos pestañas:
 
 - **Crear usuario**: crea una cuenta nueva a partir del nombre, el correo y el rol. La contraseña inicial es opcional: si se omite, el usuario recibe por correo un enlace de invitación para definirla (ver _Activación de una cuenta mediante invitación_). Si se indica, debe tener al menos 8 caracteres y debe comunicarse al usuario por un medio seguro.
 - **Usuario existente**: agrega a una persona que ya tiene una cuenta en la plataforma, por ejemplo porque pertenece a otra organización. Basta con indicar su correo y su rol; el usuario recibe una notificación.
@@ -148,7 +148,7 @@ Es posible añadir varios usuarios a la lista de pendientes y guardarlos en una 
 
 ### Quitar integrantes
 
-La lista de integrantes, que se despliega con el botón **Mostrar usuarios**, muestra la última conexión de cada usuario y permite quitarlo de la organización previa confirmación. Al quitar a un integrante:
+La lista de integrantes, en la pestaña **Usuarios**, muestra la última conexión de cada usuario y permite quitarlo de la organización previa confirmación. Al quitar a un integrante:
 
 - Deja de tener acceso a la organización y a sus asignaturas. Sus entregas se conservan.
 - Las asignaturas en que era el único docente se transfieren al administrador que realizó la acción.
@@ -163,6 +163,17 @@ El botón **Editar** del área <u>Organización</u> permite modificar el nombre 
 ### Imagen de portada
 
 La organización y cada asignatura pueden tener una imagen de portada. Para cambiarla, se utiliza el botón **Cambiar imagen** ubicado sobre la portada, que permite seleccionar una imagen previamente subida a los archivos de la organización o de la asignatura, según corresponda. En la organización, esta acción está reservada a los administradores; en una asignatura, a sus docentes.
+
+### Almacenamiento
+
+La pestaña **Almacenamiento** muestra el espacio que ocupan los archivos de la organización, con un límite de 512 MB por organización:
+
+- Una barra resume el espacio usado: las asignaturas que más ocupan, los archivos generales de la organización, las demás asignaturas, el espacio adicional que requieren la codificación y el cifrado de los archivos, y el espacio disponible.
+- Una tabla detalla el espacio de cada asignatura, separado en el material subido por sus docentes y las entregas de los estudiantes. La tabla permite buscar por nombre, filtrar por estado y ordenar por tamaño, cantidad de archivos o nombre.
+
+Cuando el uso supera el 75 % del límite, se muestra una advertencia. Para liberar espacio, se recomienda eliminar los archivos que ya no se utilicen, comenzando por los de asignaturas inactivas.
+
+Los docentes pueden consultar el espacio que ocupa cada una de sus asignaturas en su página de configuración.
 
 ### Cambiar la organización activa
 
@@ -187,7 +198,7 @@ Un administrador que no participa en una asignatura puede gestionar sus integran
 
 ### Configuración de la asignatura
 
-El botón **Configuración**, disponible para los docentes y los administradores, permite cambiar el nombre de la asignatura y su estado.
+El botón **Configuración**, disponible para los docentes y los administradores, permite cambiar el nombre de la asignatura y su estado, y muestra el espacio que ocupan sus archivos, separado en el material de la asignatura y las entregas de los estudiantes.
 
 ### Archivar y reactivar una asignatura
 
@@ -443,7 +454,8 @@ Esta sección está dirigida al personal técnico que desee alojar la plataforma
 
 ### Requisitos
 
-- Un equipo con Docker y Docker Compose instalados.
+- Un equipo con Docker y Docker Compose, o con Podman 4 o posterior (ver _Uso con Podman_).
+- Para la base de datos local, un procesador compatible con las instrucciones AVX, que MongoDB 8 requiere. Algunas máquinas virtuales no las exponen; en ese caso, MongoDB se detiene al iniciar y se debe usar una base de datos externa o solicitar al proveedor que habilite AVX.
 - Una copia del código fuente de la plataforma.
 - Opcionalmente, una cuenta de correo con acceso SMTP para el envío de invitaciones y avisos.
 
@@ -465,7 +477,7 @@ Con una base de datos externa, basta con:
 
 `docker compose up -d --build`
 
-La plataforma queda disponible en el puerto 8065 del servidor, por ejemplo en `http://<dirección-del-servidor>:8065`. El primer administrador se crea mediante el registro de una institución, descrito en _Acceso a la plataforma_. Los servicios se reinician automáticamente si se detienen o si el servidor se reinicia.
+La plataforma queda disponible en el puerto 8065 del servidor, por ejemplo en `http://<dirección-del-servidor>:8065`. El primer administrador se crea mediante el registro de una institución, descrito en _Acceso a la plataforma_. Con Docker, los servicios se reinician automáticamente si se detienen o si el servidor se reinicia; con Podman, esto requiere la configuración descrita en _Uso con Podman_.
 
 ### Acceso desde Internet mediante un túnel
 
@@ -479,6 +491,17 @@ Por ejemplo, con la base de datos local y ngrok:
 `docker compose -f compose.yaml -f compose.local.yaml --profile ngrok up -d --build`
 
 En ambos casos, `APP_URL` debe corresponder a la dirección pública, con `https://`.
+
+### Uso con Podman
+
+Algunas instituciones administran sus contenedores con Podman en lugar de Docker. La plataforma funciona sin cambios, considerando lo siguiente:
+
+- Los comandos son los mismos, reemplazando `docker compose` por `podman compose`, por ejemplo: `podman compose -f compose.yaml -f compose.local.yaml up -d --build`. Se requiere Podman 4 o posterior, para que los servicios se encuentren entre sí por su nombre.
+- Podman suele ejecutar los contenedores sin privilegios de administrador. En ese modo, los contenedores se detienen al cerrar la sesión del usuario que los inició, salvo que un administrador del servidor ejecute `loginctl enable-linger <usuario>`.
+- Para que los servicios vuelvan a iniciarse tras un reinicio del servidor, el mismo usuario debe habilitar el servicio correspondiente con `systemctl --user enable podman-restart.service`.
+- Sin privilegios no es posible usar los puertos inferiores a 1024, como el 80 o el 443. La plataforma utiliza el puerto 8065, y se recomienda que el proxy inverso de la institución dirija hacia él la dirección pública con HTTPS.
+- En servidores con SELinux activo, las carpetas montadas por el servicio de respaldo ya incluyen la etiqueta necesaria para que los contenedores puedan acceder a ellas.
+- Al construir las imágenes, Podman puede advertir que la instrucción `HEALTHCHECK` no es compatible con su formato de imagen. La advertencia no impide el funcionamiento de la plataforma y puede ignorarse.
 
 ### Consideraciones
 

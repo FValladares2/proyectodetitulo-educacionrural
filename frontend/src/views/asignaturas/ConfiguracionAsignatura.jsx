@@ -14,10 +14,53 @@ import {
   CRow,
   CSpinner,
 } from '@coreui/react'
+import PropTypes from 'prop-types'
 import { useParams } from 'react-router-dom'
 import { actualizarConfigAsignatura, fetchConfigAsignatura } from 'src/services/asignServices'
+import { formatearTamano } from 'src/services/recursoServices'
 
 const MAX_NOMBRE = 120
+
+const cantidadArchivos = (n) => `${n} ${n === 1 ? 'archivo' : 'archivos'}`
+
+// espacio que ocupan los archivos de la asignatura: material del docente y entregas
+const AlmacenamientoAsignatura = ({ almacenamiento }) => {
+  const { material, entregas } = almacenamiento
+  const tamano = material.tamano + entregas.tamano
+  return (
+    <CCard className="mb-4 shadow-sm border-0">
+      <CCardHeader className="bg-transparent border-bottom">
+        <h5 className="mb-0 fw-semibold">Almacenamiento</h5>
+      </CCardHeader>
+      <CCardBody>
+        <p className="mb-2">
+          Esta asignatura usa <strong>{formatearTamano(tamano)}</strong> en{' '}
+          {cantidadArchivos(material.archivos + entregas.archivos)}:
+        </p>
+        <ul className="mb-2">
+          <li>
+            Material de la asignatura: {formatearTamano(material.tamano)} (
+            {cantidadArchivos(material.archivos)})
+          </li>
+          <li>
+            Entregas de estudiantes: {formatearTamano(entregas.tamano)} (
+            {cantidadArchivos(entregas.archivos)})
+          </li>
+        </ul>
+        <CFormText>
+          Tamaño original de los archivos. Para liberar espacio, elimina archivos que ya no se usen
+          o tareas antiguas junto con sus entregas.
+        </CFormText>
+      </CCardBody>
+    </CCard>
+  )
+}
+AlmacenamientoAsignatura.propTypes = {
+  almacenamiento: PropTypes.shape({
+    material: PropTypes.shape({ archivos: PropTypes.number, tamano: PropTypes.number }),
+    entregas: PropTypes.shape({ archivos: PropTypes.number, tamano: PropTypes.number }),
+  }).isRequired,
+}
 
 // nombre y estado de la asignatura; para docentes y administradores de la organización
 const ConfiguracionAsignatura = () => {
@@ -27,6 +70,8 @@ const ConfiguracionAsignatura = () => {
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState(null)
+  // solo viene al cargar; guardar el nombre o el estado no lo cambia
+  const [almacenamiento, setAlmacenamiento] = useState(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -34,6 +79,7 @@ const ConfiguracionAsignatura = () => {
       .then((config) => {
         setGuardada(config)
         setForm({ nombre: config.nombre, activo: config.activo })
+        setAlmacenamiento(config.almacenamiento ?? null)
       })
       .catch(
         (err) => err.name !== 'AbortError' && setMensaje({ color: 'danger', texto: err.message }),
@@ -117,6 +163,7 @@ const ConfiguracionAsignatura = () => {
           )}
         </CCardBody>
       </CCard>
+      {almacenamiento && <AlmacenamientoAsignatura almacenamiento={almacenamiento} />}
     </div>
   )
 }

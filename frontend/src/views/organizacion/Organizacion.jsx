@@ -5,17 +5,21 @@ import {
   CCard,
   CCardBody,
   CCardHeader,
-  CCardFooter,
   CCol,
+  CNav,
+  CNavItem,
+  CNavLink,
   CRow,
   CSpinner,
 } from '@coreui/react'
+import { useSearchParams } from 'react-router-dom'
 import AddUserToOrgModal from 'src/components/modals/addUserToOrgModal'
 import EditarOrgModal from 'src/components/modals/EditarOrgModal'
 import CIcon from '@coreui/icons-react'
 import { cilPencil } from '@coreui/icons'
 import BannerRecurso from 'src/components/recursos/BannerRecurso'
 import TablaIntegrantes from 'src/components/integrantes/TablaIntegrantes'
+import AlmacenamientoOrganizacion from './AlmacenamientoOrganizacion'
 import { EVENTO_SESION_EXPIRADA } from 'src/services/apiClient'
 import { getAuthUser } from 'src/services/authServices'
 import {
@@ -28,11 +32,18 @@ import {
   updateOrgImg,
 } from '../../services/orgServices.js'
 
+// pestañas del área; la de almacenamiento es solo para administradores
+const SECCIONES = [
+  { clave: 'informacion', etiqueta: 'Información' },
+  { clave: 'usuarios', etiqueta: 'Usuarios' },
+  { clave: 'almacenamiento', etiqueta: 'Almacenamiento', soloAdmin: true },
+]
+
 const Organizacion = () => {
   const [loadingOrg, setLoadingOrg] = useState(false)
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [loadingOrgs, setLoadingOrgs] = useState(false)
-  const [showUserTable, setShowUserTable] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
   const [showAddUserModal, setShowAddUserModal] = useState(false)
   const [currentOrgId, setCurrentOrgId] = useState(getInitialOrgId)
   const [currentOrg, setCurrentOrg] = useState(null)
@@ -45,6 +56,15 @@ const Organizacion = () => {
   const esAdmin = Boolean(
     authUser && (currentOrg?.administradores || []).some((a) => String(a) === String(authUser._id)),
   )
+
+  // la pestaña va en la URL (?seccion=...) para poder volver a ella o compartir el enlace
+  const secciones = SECCIONES.filter((s) => esAdmin || !s.soloAdmin)
+  const seccion = secciones.some((s) => s.clave === searchParams.get('seccion'))
+    ? searchParams.get('seccion')
+    : 'informacion'
+  const cambiarSeccion = (clave) => {
+    setSearchParams(clave === 'informacion' ? {} : { seccion: clave }, { replace: true })
+  }
 
   const handleCambiarImg = async (img) => {
     await updateOrgImg(currentOrgId, img)
@@ -73,7 +93,7 @@ const Organizacion = () => {
     }
     obtenerUsuarios()
     return () => controller.abort()
-  }, [currentOrgId, showUserTable, recargasUsuarios])
+  }, [currentOrgId, recargasUsuarios])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -128,10 +148,6 @@ const Organizacion = () => {
     setRecargasUsuarios((n) => n + 1)
   }
 
-  const handleShowUserTable = () => {
-    setShowUserTable(!showUserTable)
-  }
-
   const handleOrgClick = async (orgId) => {
     // actualiza organización del usuario actual
     const updatedOrg = await updateInitialOrgId(orgId)
@@ -158,7 +174,7 @@ const Organizacion = () => {
                 ambito="organizacion"
                 onCambiar={handleCambiarImg}
               />
-              <CCardHeader className="bg-transparent border-bottom d-flex justify-content-between align-items-center gap-2">
+              <CCardHeader className="bg-transparent border-0 d-flex justify-content-between align-items-center gap-2">
                 <h4 className="mb-0 fw-semibold text-break">
                   Tu organización actual: {currentOrg?.nombre || 'organizacion'}
                 </h4>
@@ -174,74 +190,108 @@ const Organizacion = () => {
                   </CButton>
                 )}
               </CCardHeader>
-              <CCardBody>
-                {currentOrg?.descripcion && (
-                  <p className="mb-2" style={{ whiteSpace: 'pre-line' }}>
-                    {currentOrg.descripcion}
-                  </p>
-                )}
-                {currentOrg?.direccion && (
-                  <p className="text-body-secondary mb-0">Dirección: {currentOrg.direccion}</p>
-                )}
-                {currentOrg?.informacion_contacto && (
-                  <p className="text-body-secondary mb-0">
-                    Contacto: {currentOrg.informacion_contacto}
-                  </p>
-                )}
-                {!currentOrg?.descripcion &&
-                  !currentOrg?.direccion &&
-                  !currentOrg?.informacion_contacto && (
-                    <p className="text-body-secondary mb-0">
-                      {esAdmin
-                        ? 'Aún no hay información de la organización. Usa Editar para agregar una descripción, dirección y contacto.'
-                        : 'Aún no hay información de la organización.'}
-                    </p>
-                  )}
-              </CCardBody>
-              <CCardFooter>
-                <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-0">
-                  <p className="text-body-secondary mb-0">Usuarios en la organización:</p>
-                  <div className="d-flex flex-wrap gap-2">
-                    {esAdmin && (
-                      <CButton color="primary" onClick={() => setShowAddUserModal(true)}>
-                        Agregar usuarios
-                      </CButton>
+              <CNav variant="tabs" role="tablist" className="organizacion-pestanas px-3 pt-2">
+                {secciones.map((s) => (
+                  <CNavItem key={s.clave} role="presentation">
+                    <CNavLink
+                      as="button"
+                      type="button"
+                      role="tab"
+                      id={`pestana-${s.clave}`}
+                      aria-controls={`panel-${s.clave}`}
+                      aria-selected={seccion === s.clave}
+                      active={seccion === s.clave}
+                      onClick={() => cambiarSeccion(s.clave)}
+                    >
+                      {s.etiqueta}
+                    </CNavLink>
+                  </CNavItem>
+                ))}
+              </CNav>
+              <CCardBody
+                role="tabpanel"
+                id={`panel-${seccion}`}
+                aria-labelledby={`pestana-${seccion}`}
+              >
+                {seccion === 'informacion' && (
+                  <>
+                    {currentOrg?.descripcion && (
+                      <p className="mb-2" style={{ whiteSpace: 'pre-line' }}>
+                        {currentOrg.descripcion}
+                      </p>
                     )}
-                    <CButton color="secondary" variant="outline" onClick={handleShowUserTable}>
-                      {showUserTable ? 'Ocultar usuarios' : 'Mostrar usuarios'}
-                    </CButton>
-                  </div>
-                </div>
-                {showUserTable &&
-                  (loadingUsers ? (
-                    <div className="text-center py-5">
-                      <CSpinner color="primary" />
-                      <p className="mt-2 text-body-secondary small">Cargando usuarios...</p>
-                    </div>
-                  ) : (
-                    <>
-                      {avisoQuitar && (
-                        <CAlert
-                          color="info"
-                          className="mt-2 mb-0"
-                          dismissible
-                          onClose={() => setAvisoQuitar('')}
-                        >
-                          {avisoQuitar}
-                        </CAlert>
+                    {currentOrg?.direccion && (
+                      <p className="text-body-secondary mb-0">Dirección: {currentOrg.direccion}</p>
+                    )}
+                    {currentOrg?.informacion_contacto && (
+                      <p className="text-body-secondary mb-0">
+                        Contacto: {currentOrg.informacion_contacto}
+                      </p>
+                    )}
+                    {!currentOrg?.descripcion &&
+                      !currentOrg?.direccion &&
+                      !currentOrg?.informacion_contacto && (
+                        <p className="text-body-secondary mb-0">
+                          {esAdmin
+                            ? 'Aún no hay información de la organización. Usa Editar para agregar una descripción, dirección y contacto.'
+                            : 'Aún no hay información de la organización.'}
+                        </p>
                       )}
-                      <TablaIntegrantes
-                        integrantes={integrantes}
-                        idUsuarioActual={authUser?._id}
-                        etiquetaAcceso={esAdmin ? 'Última conexión' : undefined}
-                        puedeQuitar={puedeQuitar}
-                        onQuitar={handleQuitar}
-                        describirQuitar={describirQuitar}
-                        textoVacio="No hay usuarios en esta organización."
-                      />
-                    </>
-                  ))}
-              </CCardFooter>
+                  </>
+                )}
+
+                {seccion === 'usuarios' && (
+                  <>
+                    <div className="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                      <p className="text-body-secondary mb-0">
+                        {loadingUsers
+                          ? 'Usuarios en la organización'
+                          : `${integrantes.length} ${integrantes.length === 1 ? 'usuario' : 'usuarios'} en la organización`}
+                      </p>
+                      {esAdmin && (
+                        <CButton color="primary" onClick={() => setShowAddUserModal(true)}>
+                          Agregar usuarios
+                        </CButton>
+                      )}
+                    </div>
+                    {loadingUsers ? (
+                      <div className="text-center py-5">
+                        <CSpinner color="primary" />
+                        <p className="mt-2 text-body-secondary small">Cargando usuarios...</p>
+                      </div>
+                    ) : (
+                      <>
+                        {avisoQuitar && (
+                          <CAlert
+                            color="info"
+                            className="mt-2 mb-0"
+                            dismissible
+                            onClose={() => setAvisoQuitar('')}
+                          >
+                            {avisoQuitar}
+                          </CAlert>
+                        )}
+                        <TablaIntegrantes
+                          integrantes={integrantes}
+                          idUsuarioActual={authUser?._id}
+                          etiquetaAcceso={esAdmin ? 'Última conexión' : undefined}
+                          puedeQuitar={puedeQuitar}
+                          onQuitar={handleQuitar}
+                          describirQuitar={describirQuitar}
+                          textoVacio="No hay usuarios en esta organización."
+                        />
+                      </>
+                    )}
+                  </>
+                )}
+
+                {seccion === 'almacenamiento' && currentOrgId && (
+                  <AlmacenamientoOrganizacion
+                    key={currentOrgId}
+                    idOrganizacion={String(currentOrgId)}
+                  />
+                )}
+              </CCardBody>
             </CCard>
           )}
 
@@ -292,7 +342,10 @@ const Organizacion = () => {
           <AddUserToOrgModal
             visible={showAddUserModal}
             onClose={() => setShowAddUserModal(false)}
-            onSuccess={() => setShowUserTable(true)}
+            onSuccess={() => {
+              setRecargasUsuarios((n) => n + 1)
+              cambiarSeccion('usuarios')
+            }}
           />
         </CCol>
       </CRow>

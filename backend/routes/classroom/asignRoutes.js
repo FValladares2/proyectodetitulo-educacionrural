@@ -225,7 +225,7 @@ const puedeAdministrarIntegrantes = async (asignatura, id_usuario) =>
         asignatura.id_organizacion && await orgServices.findAdminInOrg(asignatura.id_organizacion, id_usuario)
     )
 
-// nombre y estado; la ven y editan los docentes y los administradores de la organización
+// nombre, estado y espacio usado; la ven y editan los docentes y los administradores de la organización
 router.get('/api/asign/:id/config', authenticate, async (req, res) => {
     try {
         if (!ObjectId.isValid(req.params.id)) {
@@ -238,7 +238,14 @@ router.get('/api/asign/:id/config', authenticate, async (req, res) => {
         if (!(await puedeAdministrarIntegrantes(asignatura, req.user._id))) {
             return res.status(403).json({ message: 'No tienes permisos para configurar esta asignatura.' })
         }
-        res.status(200).json({ _id: asignatura._id, nombre: asignatura.nombre, activo: asignatura.activo !== false })
+        // espacio que ocupan sus archivos: material de la asignatura y entregas de sus tareas
+        const resumen = await recursoServices.resumirAlmacenamiento({ ids_asignatura: [asignatura._id] })
+        res.status(200).json({
+            _id: asignatura._id,
+            nombre: asignatura.nombre,
+            activo: asignatura.activo !== false,
+            almacenamiento: resumen?.asignaturas[String(asignatura._id)] ?? null,
+        })
     } catch (error) {
         console.error('Error al obtener la configuración de la asignatura:', error)
         res.status(500).json({ message: 'No se pudo obtener la configuración.' })

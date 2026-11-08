@@ -16,7 +16,7 @@ import ReactMarkdown from 'react-markdown'
 import { useNavigate } from 'react-router-dom'
 import IconoRecurso from 'src/components/recursos/IconoRecurso'
 import { formatearFecha, insigniaTarea } from 'src/components/tareas/tareaFechas'
-import { descargarRecurso, eliminarRecurso } from 'src/services/recursoServices'
+import { descargarRecurso, eliminarRecurso, formatearTamano } from 'src/services/recursoServices'
 import {
   eliminarTarea,
   enviarEntrega,
@@ -30,9 +30,6 @@ import ImagenMarkdown from './ImagenMarkdown'
 import { urlTransform } from './recursoMarkdown'
 
 const componentesDescripcion = { img: ImagenMarkdown, a: EnlaceMarkdown }
-
-const formatearTamano = (bytes) =>
-  bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`
 
 // --- vista del estudiante: sus archivos, enviar y retirar ---
 

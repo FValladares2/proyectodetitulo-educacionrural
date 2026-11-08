@@ -3,6 +3,14 @@ import { getAuthToken } from './authServices'
 
 const MAX_TAMANO_ARCHIVO = 10 * 1024 * 1024
 
+const formatoDecimal = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 1 })
+
+// "850 KB", "12,3 MB"; 0 bytes se muestra como "0 KB"
+const formatearTamano = (bytes = 0) =>
+  bytes >= 1024 * 1024
+    ? `${formatoDecimal.format(bytes / 1024 / 1024)} MB`
+    : `${Math.ceil(bytes / 1024)} KB`
+
 const fetchRecursosByAsignatura = (id_asignatura, signal = undefined) =>
   apiFetch(`/api/recurso/asignatura/${id_asignatura}`, {
     signal,
@@ -58,6 +66,7 @@ const getUploadConfig = () => ({
 
 const recursoServices = {
   MAX_TAMANO_ARCHIVO,
+  formatearTamano,
   fetchRecursosByAsignatura,
   fetchRecursosByOrganizacion,
   fetchRecursoBlob,
@@ -69,6 +78,7 @@ const recursoServices = {
 
 export {
   MAX_TAMANO_ARCHIVO,
+  formatearTamano,
   fetchRecursosByAsignatura,
   fetchRecursosByOrganizacion,
   fetchRecursoBlob,
