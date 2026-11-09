@@ -283,8 +283,6 @@ Al seleccionar uno o más archivos, la barra superior del administrador de archi
 - **Renombrar**: cambia el nombre del archivo, respetando las mismas reglas de nombres que al subirlo. Las imágenes y enlaces del contenido que usan el archivo siguen funcionando.
 - **Eliminar**: borra definitivamente los archivos seleccionados, previa confirmación. Las imágenes o enlaces del contenido que apuntaban a ellos dejarán de mostrarse.
 
-La organización cuenta además con su propia carpeta de archivos generales, por ejemplo para su imagen de portada, que solo pueden modificar los administradores.
-
 ## Tareas
 
 Una tarea es un espacio de interacción entre docentes y estudiantes, en el que el docente define un periodo para recibir respuestas a una actividad y cada estudiante envía sus archivos como respuesta.
